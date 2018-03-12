@@ -64,6 +64,8 @@ class SingleReadProbabilityCalculator {
   // Evals change with filled added and removed paths
   void EvalProbabilityChange(SingleProbabilityChange& prob_change);
 
+  double GetContigsProbability(const vector<string>& contigs);
+
  private:
   double InitTotalLogProb();
 
@@ -142,6 +144,8 @@ class PairedReadProbabilityCalculator {
   // Get total probability from change and cached data
   double EvalTotalProbabilityFromChange(const PairedProbabilityChange& prob_change, bool write=false) ;
   int GetPathsLength(const vector<Path>& paths) const;
+
+  double GetContigsProbability(const vector<string>& contigs);
  private:
 
   double InitTotalLogProb();
@@ -175,6 +179,8 @@ class PairedReadProbabilityCalculator {
 class GlobalProbabilityCalculator {
  public:
   GlobalProbabilityCalculator(const Config &config);
+
+  double GetContigsProbability(const vector<string>& contigs);
 
   // Call this first
   double GetPathsProbability(

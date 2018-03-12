@@ -133,6 +133,9 @@ int SingleReadProbabilityCalculator::GetPathsLength(const vector<Path>& paths) c
   }
   return ret;
 }
+double SingleReadProbabilityCalculator::GetContigsProbability(const vector<string> &contigs) {
+  return 0;
+}
 
 double PairedReadProbabilityCalculator::InitTotalLogProb() {
   double ret = 0;
@@ -274,6 +277,9 @@ double PairedReadProbabilityCalculator::GetAlignmentProb(const PairedReadAlignme
 
   return pp1 * pp2 * pdf_normal(al.insert_length, mean_distance_, std_distance_);
 }
+double PairedReadProbabilityCalculator::GetContigsProbability(const vector<string> &contigs) {
+
+}
 
 GlobalProbabilityCalculator::GlobalProbabilityCalculator(const Config& config) {
   for (auto &single_short_reads: config.single_short_reads()) {
@@ -350,4 +356,19 @@ void GlobalProbabilityCalculator::CommitProbabilityChanges(
   for (size_t i = 0; i < paired_read_calculators_.size(); i++) {
     paired_read_calculators_[i].first.CommitProbabilityChange(prob_changes.paired_read_changes[i]);
   }
+}
+double GlobalProbabilityCalculator::GetContigsProbability(const vector<string> &contigs) {
+  double total_prob = 0;
+  for (auto &single_read_calculator: single_read_calculators_) {
+    double prob = single_read_calculator.first.GetContigsProbability(contigs);
+    total_prob += prob * single_read_calculator.second;
+  }
+
+  for (auto &paired_read_calculator: paired_read_calculators_) {
+    PairedProbabilityChange ch;
+    double prob = paired_read_calculator.first.GetContigsProbability(contigs);
+    total_prob += prob * paired_read_calculator.second;
+  }
+
+  return total_prob;
 }

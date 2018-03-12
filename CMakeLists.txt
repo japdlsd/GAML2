@@ -67,3 +67,7 @@ target_link_libraries(get_subgraph graph)
 add_executable(gaml gaml_main.cc ${PROTO_SRCS} ${PROTO_HDRS})
 target_include_directories(gaml PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(gaml graph path read_probability_calculator moves ${PROTOBUF_LIBRARIES})
+
+add_executable(gaml_score gaml_score.cpp ${PROTO_SRCS} ${PROTO_HDRS})
+target_include_directories(gaml_score PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(gaml_score graph path read_probability_calculator moves ${PROTOBUF_LIBRARIES})
