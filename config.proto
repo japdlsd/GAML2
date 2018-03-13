@@ -49,8 +49,11 @@ message Config {
     // how often should program flush current solution to the output file (once in X iterations)
     optional int32 output_flush_freq = 10 [default = 100];
 
+    optional string iter_log_file = 12 [default = 'gaml_iter.log'];
+
     // Annealing settings: Temperature at iteration n is t0 / (log(n/n_divisor + 1))
-    optional double t0 = 4 [default = 0.08];
+    //optional double t0 = 4 [default = 0.08 ];
+    optional double t0 = 4 [default = 800 ];
     optional double n_divisor = 5 [default = 1];
 
     optional int32 num_iterations = 6 [default = 100];

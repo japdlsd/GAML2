@@ -33,6 +33,12 @@ struct ProbabilityChanges {
   // @TODO create an interface for ProbabilityChange?
   vector<SingleProbabilityChange> single_read_changes;
   vector<PairedProbabilityChange> paired_read_changes;
+
+  long long getLength() {
+    if (!single_read_changes.empty()) return single_read_changes[0].new_paths_length;
+    if (!paired_read_changes.empty()) return paired_read_changes[0].new_paths_length;
+    return 0;
+  }
 };
 
 class SingleReadProbabilityCalculator {
@@ -183,6 +189,8 @@ class GlobalProbabilityCalculator {
   // Call this after you are happy with current result (i.e. you got better
   // probability)
   void CommitProbabilityChanges(const ProbabilityChanges &prob_changes);
+
+  double GetAprioriPathsLogProbability(const vector<Path>& paths);
 
   vector<SingleShortReadSet<>*> single_short_read_sets_;
   vector<ShortPairedReadSet<>*> paired_read_sets_;

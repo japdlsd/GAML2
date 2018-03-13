@@ -690,39 +690,42 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
   return true;
 }
 
-void MakeMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator,
+string MakeMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator,
               bool& accept_higher_prob) {
   while (true) {
     out_paths.clear();
-    if (TryMove(paths, out_paths, config, probability_calculator, accept_higher_prob)) return;
+    pair<bool, string> res = TryMove(paths, out_paths, config, probability_calculator, accept_higher_prob);
+    if (res.first) {
+      return res.second;
+    }
   }
 }
 
-bool TryMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator,
+pair<bool, string> TryMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator,
              bool& accept_higher_prob) {
   // @TODO add probs of moves into config
 
-  int move = rand()%31;
-  if (move == 0) {
+  int move = rand()%40;
+  if (0 <= move && move < 10) {
     accept_higher_prob = false;
-    return ExtendPathsRandomly(paths, out_paths, config);
+    return make_pair(ExtendPathsRandomly(paths, out_paths, config), PATH_EXTEND_RANDOMLY);
   }
-  if (1 <= move && move < 11) {
+  if (10 <= move && move < 20) {
     accept_higher_prob = true;
-    return BreakPaths(paths, out_paths, config);
+    return make_pair(BreakPaths(paths, out_paths, config), PATH_BREAK);
   }
   // @TODO Joining with advice move (high priority)
-  if (11 <= move && move < 21) {
+  if (20 <= move && move < 30) {
     accept_higher_prob = false; // @TODO check with Usama if correct
-    return JoinWithAdvice(paths, out_paths, config, probability_calculator);
+    return make_pair(JoinWithAdvice(paths, out_paths, config, probability_calculator), PATH_JOIN);
   }
-  if (21 <= move && move < 31) {
+  if (30 <= move && move < 40) {
     accept_higher_prob = false;
-    return UntangleCrossedPaths(paths, out_paths, config, probability_calculator);
+    return make_pair(UntangleCrossedPaths(paths, out_paths, config, probability_calculator), PATH_UNTANGLE);
   }
 
   // @TODO add Local improvement move (low priority)
   // @TODO add Repeat optimization move (low priority)
   // @TODO Repeat interchange move (low priority)
-  return false;
+  return make_pair(false, "");
 }

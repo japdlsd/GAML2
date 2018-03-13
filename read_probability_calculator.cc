@@ -61,8 +61,10 @@ double SingleReadProbabilityCalculator::EvalTotalProbabilityFromChange(
   double accumulated_prob = 0;
   for (auto &ch: changes) {
     if (ch.first != last_read_id && last_read_id != -47) {
-      new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id) / read_set_->size();
-      new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id) / read_set_->size();
+      //new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id) / read_set_->size();
+      new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id);
+      //new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id) / read_set_->size();
+      new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id);
       if (write) {
         read_probs_[last_read_id] += accumulated_prob;
       }
@@ -72,8 +74,10 @@ double SingleReadProbabilityCalculator::EvalTotalProbabilityFromChange(
     last_read_id = ch.first;
   }
   if (last_read_id != -47) {
-    new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id) / read_set_->size();
-    new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id) / read_set_->size();
+    //new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id) / read_set_->size();
+    new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id);
+    //new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id) / read_set_->size();
+    new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id);
     if (write) {
       read_probs_[last_read_id] += accumulated_prob;
     }
@@ -113,7 +117,8 @@ double SingleReadProbabilityCalculator::InitTotalLogProb() {
   double ret = 0;
   for (size_t i = 0; i < read_set_->size(); i++) {
     read_probs_[i] = 0;
-    ret += GetMinLogProbability((*read_set_)[i].size()) / read_set_->size();
+    //ret += GetMinLogProbability((*read_set_)[i].size()) / read_set_->size();
+    ret += GetMinLogProbability((*read_set_)[i].size());
   }
   return ret;
 }
@@ -138,7 +143,8 @@ double PairedReadProbabilityCalculator::InitTotalLogProb() {
   double ret = 0;
   for (size_t i = 0; i < read_set_->size(); i++) {
     read_probs_[i] = 0;
-    ret += GetMinLogProbability((*read_set_)[i].first.size() + (*read_set_)[i].second.size()) / read_set_->size();
+    //ret += GetMinLogProbability((*read_set_)[i].first.size() + (*read_set_)[i].second.size()) / read_set_->size();
+    ret += GetMinLogProbability((*read_set_)[i].first.size() + (*read_set_)[i].second.size());
   }
   return ret;
 }
@@ -216,8 +222,10 @@ double PairedReadProbabilityCalculator::EvalTotalProbabilityFromChange(const Pai
   double accumulated_prob = 0;
   for (auto &ch: changes) {
     if (ch.first != last_read_id && last_read_id != -47) {
-      new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id) / read_set_->size();
-      new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id) / read_set_->size();
+      //new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id) / read_set_->size();
+      new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id);
+      //new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id) / read_set_->size();
+      new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id);
       if (write) {
         read_probs_[last_read_id] += accumulated_prob;
       }
@@ -227,8 +235,10 @@ double PairedReadProbabilityCalculator::EvalTotalProbabilityFromChange(const Pai
     last_read_id = ch.first;
   }
   if (last_read_id != -47) {
-    new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id) / read_set_->size();
-    new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id) / read_set_->size();
+    //new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id) / read_set_->size();
+    new_prob -= GetRealReadProbability(read_probs_[last_read_id], last_read_id);
+    //new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id) / read_set_->size();
+    new_prob += GetRealReadProbability(read_probs_[last_read_id] + accumulated_prob, last_read_id);
     if (write) {
       read_probs_[last_read_id] += accumulated_prob;
     }
@@ -336,6 +346,7 @@ double GlobalProbabilityCalculator::GetPathsProbability(
     prob_changes.paired_read_changes.push_back(ch);
   }
 
+  total_prob += GetAprioriPathsLogProbability(paths);
   return total_prob;
 }
 
@@ -350,4 +361,12 @@ void GlobalProbabilityCalculator::CommitProbabilityChanges(
   for (size_t i = 0; i < paired_read_calculators_.size(); i++) {
     paired_read_calculators_[i].first.CommitProbabilityChange(prob_changes.paired_read_changes[i]);
   }
+}
+double GlobalProbabilityCalculator::GetAprioriPathsLogProbability(const vector<Path> &paths) {
+  int prob = 0;
+  for (auto &p: paths) {
+    const auto length = (long long)p.ToString(true).size();
+    prob += length;
+  }
+  return -prob * log(4);
 }
