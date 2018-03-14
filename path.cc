@@ -79,6 +79,7 @@ void Path::Reverse() {
     nodes_new.push_back(nodes_[i]->rc_);
   }
   nodes_ = nodes_new;
+  history_ += PATH_REVERSE;
 }
 
 Path Path::GetReverse() const {
@@ -88,6 +89,7 @@ Path Path::GetReverse() const {
   }
   Path ret;
   ret.nodes_ = nodes_new;
+  ret.history_ = history_ + PATH_REVERSE;
   return ret;
 }
 

@@ -17,7 +17,7 @@ class MoveConfig {
     {}
 };
 
-void MakeMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator, bool& accept_higher_prob);
-bool TryMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator, bool& accept_higher_prob);
+string MakeMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator, bool& accept_higher_prob);
+pair<bool, string> TryMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator, bool& accept_higher_prob);
 
 #endif

@@ -9,6 +9,7 @@ static const string PATH_BREAK = "B";
 static const string PATH_JOIN = "J";
 static const string PATH_BETTER = "+";
 static const string PATH_UNTANGLE = "U";
+static const string PATH_REVERSE = "R";
 
 class Path {
  public:

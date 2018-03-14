@@ -33,16 +33,23 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
   cout << "INITIAL PATHS:" << endl;
   cout << PathsToDebugString(paths) << endl;
 
+  ofstream iter_log(gaml_config.iter_log_file());
+  iter_log.precision(15);
+
   MoveConfig move_config;
+  string move_type = "";
+  long long total_size = prob_changes.getLength();
+
   for (int it_num = 1; it_num <= gaml_config.num_iterations() && NOT_SIGINTED; it_num++) {
     double T = gaml_config.t0() / log(it_num / gaml_config.n_divisor() + 1);
-    int total_size = 0;
-    for (auto &p: paths) total_size += p.ToString(true).size();
+
+    cout.precision(15);
     cout << "ITERATION: " << it_num << "\tT: " << T << "\tPROB: " << old_prob << "\t SIZE: " << total_size <<  endl;
+    cout.precision(6);
 
     vector<Path> new_paths;
     bool accept_high_prob;
-    MakeMove(paths, new_paths, move_config, probability_calculator, accept_high_prob);
+    move_type = MakeMove(paths, new_paths, move_config, probability_calculator, accept_high_prob);
     double new_prob = probability_calculator.GetPathsProbability(new_paths, prob_changes);
     cout << "PROPOSED PROB: " << new_prob;
 
@@ -52,6 +59,7 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
       cout << " better than old; ";
     } else if (accept_high_prob) {
       double prob = exp((new_prob - old_prob) / T);
+      cerr << "(prob: " << prob << ")\t";
       uniform_real_distribution<double> dist(0.0, 1.0);
       double samp = dist(generator);
       if (samp < prob) {
@@ -79,19 +87,26 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
 
       paths = new_paths;
       probability_calculator.CommitProbabilityChanges(prob_changes);
+      total_size = prob_changes.getLength();
     }
     cout << endl << "PROPOSED PATHS:\n" <<  PathsToDebugString(new_paths) << endl << endl;
 
     // continual output
+
     if (it_num % gaml_config.output_flush_freq() == 0) {
       ofstream of(gaml_config.output_file());
       PathsToFasta(paths, of);
+    }
+
+    {
+      iter_log << it_num <<"," << old_prob << "," << total_size <<  ", \'" << move_type << "\'," << T << endl;
     }
   }
 
   // final output
   ofstream of(gaml_config.output_file());
   PathsToFasta(paths, of);
+  iter_log.close();
 }
 
 void global_run_logging(const string& log_filename, int argc, char** argv) {
