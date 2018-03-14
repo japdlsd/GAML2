@@ -29,7 +29,7 @@ TEST(SingleReadProbabilityCalculatorTest, Test1) {
   SingleShortReadSet<> rs;
   rs.LoadReadSet(ss2);
 
-  SingleReadProbabilityCalculator rp(&rs, 0.01, -10, -0.7, 0, 0);
+  SingleReadProbabilityCalculator rp(&rs, 0.01, 0.01, 0.01, -10, -0.7, 0, 0);
   SingleProbabilityChange prob_change;
   double pr1 = rp.GetPathsProbability(vector<Path>({p1}), prob_change);
   EXPECT_FLOAT_EQ(-6.29749500325813737913, pr1);
@@ -58,7 +58,7 @@ TEST(SingleReadProbabilityCalculatorTest, Test2) {
   SingleShortReadSet<> rs;
   rs.LoadReadSet(ss2);
 
-  SingleReadProbabilityCalculator rp(&rs, 0.01, -10, -0.7, 0, 0);
+  SingleReadProbabilityCalculator rp(&rs, 0.01, 0.01, 0.01, -10, -0.7, 0, 0);
   SingleProbabilityChange prob_change;
   double pr1 = rp.GetPathsProbability(vector<Path>({p1}), prob_change);
   EXPECT_FLOAT_EQ(-99.781403, pr1);
@@ -160,7 +160,7 @@ TEST(SingleReadProbabilityCalculator, Test5) {
   SingleShortReadSet<> rs;
   rs.LoadReadSet(ss2);
 
-  SingleReadProbabilityCalculator rp(&rs, 0.01, -10, -0.7, 0, 0);
+  SingleReadProbabilityCalculator rp(&rs, 0.01, 0.01, 0.01, -10, -0.7, 0, 0);
   SingleProbabilityChange prob_change;
   double pr1 = rp.GetPathsProbability(vector<Path>({p1}), prob_change);
   EXPECT_FLOAT_EQ(-5.202997, pr1);
@@ -198,7 +198,7 @@ TEST(SingleReadProbabilityCalculator, Test6) {
   SingleShortReadSet<> rs;
   rs.LoadReadSet(ss2);
 
-  SingleReadProbabilityCalculator rp(&rs, 0.01, -10, -0.7, 0, 0);
+  SingleReadProbabilityCalculator rp(&rs, 0.01, 0.01, 0.01, -10, -0.7, 0, 0);
   SingleProbabilityChange prob_change;
   double pr1 = rp.GetPathsProbability(vector<Path>({p1}), prob_change);
   EXPECT_FLOAT_EQ(-5.202997, pr1);
@@ -242,7 +242,7 @@ TEST(SingleReadProbabilityCalculator, Test7) {
   SingleShortReadSet<> rs;
   rs.LoadReadSet(ss2);
 
-  SingleReadProbabilityCalculator rp(&rs, 0.01, -10, -0.7, 0, 0);
+  SingleReadProbabilityCalculator rp(&rs, 0.01, 0.01, 0.01, -10, -0.7, 0, 0);
   SingleProbabilityChange prob_change;
   double pr1 = rp.GetPathsProbability(vector<Path>({p1}), prob_change);
   EXPECT_FLOAT_EQ(-5.202997, pr1);
