@@ -49,7 +49,9 @@ bool ExtendPathsRandomly(const vector<Path>& paths, vector<Path>& out_paths,
   }
   int same_end = FindPathWithSameEnding(out_paths, pi);
   if (same_end == -1) {
-    return true;
+    //return true;
+    // @TODO add to config
+    return (rand() % 10 == 0);
   }
 
   MergePaths(out_paths, pi, same_end);
@@ -117,8 +119,8 @@ Path SampleRandomWalk(Node* start, const unordered_set<int>& allowed_nodes, cons
 }
 
 bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
-                    const MoveConfig& config, PairedReadProbabilityCalculator& pc) {
-  cerr << "JoinWithAdvicePaired()" << endl;
+                    const MoveConfig& config, PairedReadProbabilityCalculator& pc, GlobalProbabilityCalculator& pc_global) {
+  //cerr << "JoinWithAdvicePaired()" << endl;
 
   if (paths.empty()) return false;
   // choose path to extend (by joining another path) randomly
@@ -322,6 +324,15 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
   Path best_path;
   double best_score = -10000000000;
 
+  out_paths.clear();
+  out_paths.reserve(paths.size() - 1);
+  for (int i = 0; i < (int)paths.size(); i++) {
+    if (i != start_path_id && i != target_path_id) {
+      out_paths.push_back(paths[i]);
+    }
+  }
+
+
   for (auto &p: possible_connections) {
     vector<Node*> cut_nodes(p.nodes_.begin() + 1, p.nodes_.end() - 1);
     Path inter_path(cut_nodes);
@@ -354,6 +365,15 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
     }
     np.history_ = start_path.history_ + PATH_JOIN;
 
+    out_paths.push_back(np);
+    ProbabilityChanges pp_change;
+    double score = pc_global.GetPathsProbability(out_paths, pp_change);
+    if (score > best_score) {
+      best_path = np;
+    }
+    out_paths.pop_back();
+
+    /*
     // @TODO check for correct initialising of pp_change
     PairedProbabilityChange pp_change;
     pp_change.added_paths.push_back(np);
@@ -369,27 +389,19 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
     if (score > best_score) {
       best_score = score;
       best_path = np;
-    }
+    }*/
   }
-
-  // add to the `out_paths`, return `true` value
-  out_paths.clear();
-  out_paths.reserve(paths.size() - 1);
-  for (int i = 0; i < (int)paths.size(); i++) {
-    if (i != start_path_id && i != target_path_id) {
-      out_paths.push_back(paths[i]);
-    }
-  }
+  out_paths.pop_back();
   out_paths.push_back(best_path);
   return true;
 }
 
 bool JoinWithAdvice(const vector<Path>& paths, vector<Path>& out_paths,
-                    const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator) {
+                    const MoveConfig& config, GlobalProbabilityCalculator& pc) {
   // choose dataset for advices. if no available, then return false
   vector<int> available_paired_read_sets;
-  for (int i = 0; i < (int)probability_calculator.paired_read_calculators_.size(); i++) {
-    auto &p = probability_calculator.paired_read_calculators_[i];
+  for (int i = 0; i < (int)pc.paired_read_calculators_.size(); i++) {
+    auto &p = pc.paired_read_calculators_[i];
     if (p.first.use_as_advice_) {
       available_paired_read_sets.push_back(i);
     }
@@ -401,7 +413,7 @@ bool JoinWithAdvice(const vector<Path>& paths, vector<Path>& out_paths,
 
   const int which_dataset_to_choose = rand() % (int)available_paired_read_sets.size();
   return JoinWithAdvicePaired(paths, out_paths, config,
-                              probability_calculator.paired_read_calculators_[available_paired_read_sets[which_dataset_to_choose]].first);
+                              pc.paired_read_calculators_[available_paired_read_sets[which_dataset_to_choose]].first, pc);
 
   // @TODO add HiC choice
 }
@@ -465,7 +477,7 @@ vector<Node*> truncateSmallNodes(const vector<Node*>& nodes, const int big_node_
 }
 
 bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator) {
-  cerr << "UntangleCrossedPaths()" << endl;
+  //cerr << "UntangleCrossedPaths()" << endl;
   if (paths.size() < 2) return false;
 
   // find nodes that are in more than one path
@@ -478,6 +490,7 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
     const auto &p = paths[i];
     for (int j = 0; j < (int)p.nodes_.size(); j++) {
       auto n = p.nodes_[j];
+      if (n->str_.size() < 50) continue; // we look only at decently big nodes
       if (n->id_ > n->rc_->id_) n = n->rc_;
       const int id = n->id_;
       if (paths_by_nodes.count(id) == 0) {
@@ -657,11 +670,24 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
     }
   }
 
+  /*
   vector<Path> new_paths(paths);
   swap(new_paths[new_paths.size() - 1], new_paths[p1_id]);
   swap(new_paths[new_paths.size() - 2], new_paths[p2_id]);
   new_paths.pop_back();
   new_paths.pop_back();
+  */
+  vector<Path> new_paths;
+  new_paths.reserve(paths.size()+1);
+  for (auto &p: paths) {
+    if (!p.IsSame(p1) && !p.IsSame(p2)) new_paths.push_back(p);
+  }
+  cerr << "old: ";
+  cerr << PathsToDebugString(paths);
+  cerr << "new without changed: ";
+  cerr << PathsToDebugString(new_paths);
+  cerr << "new_paths.size(): " << new_paths.size() << "; paths.size(): " << paths.size() << endl;
+  assert(new_paths.size() + 2 == paths.size());
 
   double best_prob = -100000000;
   int best_k = 0;
@@ -684,6 +710,23 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
     }
   }
 
+  const int removed_paths_length = (int)p1.ToString(true).size() + (int)p2.ToString(true).size();
+  int added_paths_length = 0;
+  for (auto &p: added_paths[best_k]) added_paths_length += p.ToString(true).size();
+
+  if (1){
+    cerr << "removed paths: \n";
+    cerr << "[L:" << p1.ToString(true).size() << "]\t" << p1.ToDebugString() << endl;
+    cerr << "[L:" << p2.ToString(true).size() << "]\t" << p2.ToDebugString() << endl;
+
+    cerr << "best added_paths: \n";
+    for (int i = 0; i < (int)added_paths[best_k].size(); i++) {
+      cerr << "[L:" << added_paths[best_k][i].ToString(true).size() << "]\t" << added_paths[best_k][i].ToDebugString() << endl;
+    }
+  }
+
+  assert(removed_paths_length >= added_paths_length - 2 * (p1[0]->graph_->k_ - 1));
+
   new_paths.resize(paths.size() - 2);
   new_paths.insert(new_paths.end(), added_paths[best_k].begin(), added_paths[best_k].end());
   out_paths = new_paths;
@@ -705,21 +748,27 @@ pair<bool, string> TryMove(const vector<Path>& paths, vector<Path>& out_paths, c
              bool& accept_higher_prob) {
   // @TODO add probs of moves into config
 
-  int move = rand()%40;
-  if (0 <= move && move < 10) {
+  vector<int> ratios = {5, 5, 10, 10};
+  const int move_type = chooseWeightedRandomly(ratios);
+
+  if (move_type == 0) {
     accept_higher_prob = false;
+    cout << "ExtendPathsRandomly()" << endl;
     return make_pair(ExtendPathsRandomly(paths, out_paths, config), PATH_EXTEND_RANDOMLY);
   }
-  if (10 <= move && move < 20) {
+  if (move_type == 1) {
     accept_higher_prob = true;
+    cout << "BreakPaths()" << endl;
     return make_pair(BreakPaths(paths, out_paths, config), PATH_BREAK);
   }
   // @TODO Joining with advice move (high priority)
-  if (20 <= move && move < 30) {
-    accept_higher_prob = false; // @TODO check with Usama if correct
+  if (move_type == 2) {
+    cout << "JoinWithAdvice()" << endl;
+    accept_higher_prob = true; // @TODO check with Usama if correct
     return make_pair(JoinWithAdvice(paths, out_paths, config, probability_calculator), PATH_JOIN);
   }
-  if (30 <= move && move < 40) {
+  if (move_type == 3) {
+    cout << "UntangleCrossedPaths()" << endl;
     accept_higher_prob = false;
     return make_pair(UntangleCrossedPaths(paths, out_paths, config, probability_calculator), PATH_UNTANGLE);
   }

@@ -53,8 +53,9 @@ message Config {
 
     // Annealing settings: Temperature at iteration n is t0 / (log(n/n_divisor + 1))
     //optional double t0 = 4 [default = 0.08 ];
-    optional double t0 = 4 [default = 800 ];
-    optional double n_divisor = 5 [default = 1];
+    optional double t0 = 4 [default = 2000 ];
+    //optional double n_divisor = 5 [default = 1];
+    optional double n_divisor = 5 [default = 100];
 
     optional int32 num_iterations = 6 [default = 100];
 

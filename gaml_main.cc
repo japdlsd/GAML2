@@ -59,6 +59,7 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
       cout << " better than old; ";
     } else if (accept_high_prob) {
       double prob = exp((new_prob - old_prob) / T);
+      cerr << "(prob: " << prob << ")\t";
       uniform_real_distribution<double> dist(0.0, 1.0);
       double samp = dist(generator);
       if (samp < prob) {
@@ -98,7 +99,7 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
     }
 
     {
-      iter_log << it_num <<"," << old_prob << "," << total_size <<  ", \'" << move_type << "\'" << endl;
+      iter_log << it_num <<"," << old_prob << "," << total_size <<  ", \'" << move_type << "\'," << T << endl;
     }
   }
 
