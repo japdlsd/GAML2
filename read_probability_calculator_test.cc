@@ -92,7 +92,7 @@ TEST(SingleReadProbabilityCalculatorTest, Test3) {
   SingleShortReadSet<> rs;
   rs.LoadReadSet(ss2);
 
-  SingleReadProbabilityCalculator rp(&rs, 0.01, -10, -0.7, 0, 0);
+  SingleReadProbabilityCalculator rp(&rs, 0.01, 0.01, 0.01, -10, -0.7, 0, 0);
   SingleProbabilityChange prob_change;
   double pr1 = rp.GetPathsProbability(vector<Path>({p1}), prob_change);
   EXPECT_FLOAT_EQ(-5.202997, pr1);
@@ -125,7 +125,7 @@ TEST(SingleReadProbabilityCalculatorTest, Test4) {
   SingleShortReadSet<> rs;
   rs.LoadReadSet(ss2);
 
-  SingleReadProbabilityCalculator rp(&rs, 0.01, -10, -0.7, 0, 0);
+  SingleReadProbabilityCalculator rp(&rs, 0.01, 0.01, 0.01, -10, -0.7, 0, 0);
   SingleProbabilityChange prob_change;
   double pr1 = rp.GetPathsProbability(vector<Path>({p1}), prob_change);
   EXPECT_FLOAT_EQ(-6.29749500325813737913, pr1);
