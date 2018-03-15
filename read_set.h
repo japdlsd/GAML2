@@ -9,6 +9,7 @@
 #include "Sequence.h"
 #include "DalignWrapper.h"
 #include <unordered_set>
+#include <algorithm>
 using namespace std;
 
 struct CandidateReadPosition {
@@ -63,7 +64,6 @@ inline bool operator<(const SingleReadAlignment& a, const SingleReadAlignment& b
 }
 
 struct PairedReadAlignment {
-  // @TODO paired read alignment structure
   PairedReadAlignment() {}
   PairedReadAlignment(const SingleReadAlignment& al1_, const SingleReadAlignment& al2_,
                       const string& orientation_, int insert_length_) :
@@ -81,6 +81,29 @@ struct PairedReadAlignment {
 inline bool operator<(const PairedReadAlignment& a, const PairedReadAlignment& b) {
   return a.read_id < b.read_id;
 }
+
+
+struct HICReadAlignment {
+  // @TODO hic read alignment structure
+  HICReadAlignment() {}
+  HICReadAlignment(const SingleReadAlignment& al1_, const SingleReadAlignment& al2_,
+                      const string& orientation_, int insert_length_) :
+      al1(al1_), al2(al2_), orientation(orientation_),  insert_length(insert_length_){
+    read_id = al1.read_id;
+  }
+
+  SingleReadAlignment al1, al2;
+  string orientation;
+  int insert_length;
+  int read_id;
+};
+
+// needed only in EvalProbabilityChange for grouping same read info together (in sort(vector))
+inline bool operator<(const HICReadAlignment& a, const HICReadAlignment& b) {
+  return a.read_id < b.read_id;
+}
+
+
 
 class StandardReadIndex {
  public:
@@ -254,6 +277,56 @@ class ShortPairedReadSet {
     return make_pair(reads_1_[i], reads_2_[i]);
   }
   SingleShortReadSet<TIndex> reads_1_, reads_2_;
+ private:
+  // One sided get
+  void GetAlignments(const string &genome, bool reversed, vector<PairedReadAlignment> &output) const;
+
+  bool ExtendAlignment(const CandidateReadPosition &candidate, const string &genome,
+                       PairedReadAlignment &al) const;
+};
+
+template<class TIndex=StandardReadIndex>
+class HICReadSet {
+ public:
+  HICReadSet() {
+    reads_1_ = SingleShortReadSet<TIndex>();
+    reads_2_ = SingleShortReadSet<TIndex>();
+  }
+
+  void LoadReadSet(const string& filename1, const string& filename2) {
+    ifstream is1(filename1), is2(filename2);
+    LoadReadSet(is1, is2);
+  }
+
+  void LoadReadSet(istream &is1, istream &is2);
+
+  // Two sided get
+  vector<PairedReadAlignment> GetAlignments(const string &genome, const bool debug_output=true) const;
+
+  // Two sided get
+  vector<SingleReadAlignment> GetPartAlignments(const string &genome, const int part) const {
+    vector<SingleReadAlignment> ret;
+
+    if (part == 0) {
+      ret = reads_1_.GetAlignments(genome);
+    }
+    if (part == 1) {
+      ret = reads_2_.GetAlignments(genome);
+    }
+
+    sort(ret.begin(), ret.end());
+    return ret;
+  }
+
+  size_t size() const {
+    return reads_1_.size();
+  }
+
+  const pair<string, string> operator[](int i) const {
+    return make_pair(reads_1_[i], reads_2_[i]);
+  }
+  SingleShortReadSet<TIndex> reads_1_, reads_2_;
+
  private:
   // One sided get
   void GetAlignments(const string &genome, bool reversed, vector<PairedReadAlignment> &output) const;

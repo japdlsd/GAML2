@@ -567,10 +567,33 @@ pair<string, int> eval_orientation(const SingleReadAlignment& als1, const int r1
   return make_pair(orientation, insert_length);
 }
 
+template <class TIndex>
+void HICReadSet<TIndex>::LoadReadSet(istream &is1, istream &is2) {
+  // @TODO IMPLEMENT HIGH PRIORITY
+}
+template<class TIndex>
+vector<PairedReadAlignment> HICReadSet<TIndex>::GetAlignments(const string &genome, const bool debug_output) const {
+  // @TODO HIGH
+  return vector<PairedReadAlignment>();
+}
+template<class TIndex>
+void HICReadSet<TIndex>::GetAlignments(const string &genome, bool reversed, vector<PairedReadAlignment> &output) const {
+  //@TODO someday?
+}
+template<class TIndex>
+bool HICReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition &candidate,
+                                         const string &genome,
+                                         PairedReadAlignment &al) const {
+  // @TODO implement someday (or remove?)
+  return false;
+}
+
 template class SingleShortReadSet<StandardReadIndex>;
 template class SingleShortReadSet<RandomIndex>;
 template class ReadSetPacBio<StandardReadIndex>;
 template class ReadSetPacBio<RandomIndex>;
 template class ShortPairedReadSet<StandardReadIndex>;
 template class ShortPairedReadSet<RandomIndex>;
+template class HICReadSet<StandardReadIndex>;
+template class HICReadSet<RandomIndex>;
 
