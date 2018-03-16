@@ -37,7 +37,7 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
   iter_log.precision(15);
 
   MoveConfig move_config;
-  string move_type = "";
+  string move_type;
   long long total_size = prob_changes.getLength();
 
   for (int it_num = 1; it_num <= gaml_config.num_iterations() && NOT_SIGINTED; it_num++) {
