@@ -17,3 +17,5 @@ build/*
 /gaml
 /gmon.out
 /compile_commands.json
+gaml.o[0-9]+
+gaml.e[0-9]+
