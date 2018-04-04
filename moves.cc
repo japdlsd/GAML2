@@ -120,7 +120,7 @@ Path SampleRandomWalk(Node* start, const unordered_set<int>& allowed_nodes, cons
 
 bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
                     const MoveConfig& config, PairedReadProbabilityCalculator& pc, GlobalProbabilityCalculator& pc_global) {
-  //cerr << "JoinWithAdvicePaired()" << endl;
+  cerr << "JoinWithAdvicePaired()" << endl;
 
   if (paths.empty()) return false;
   // choose path to extend (by joining another path) randomly
@@ -133,8 +133,10 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
 
   // exclude nondisjoint paths
   vector<int> disjoint_path_ids;
-  const int disjoint_length = (int)(pc.mean_distance_ + pc.std_distance_ * 3);
+  const auto disjoint_length = (int)(pc.mean_distance_ + pc.std_distance_ * 3);
   for (int i = 0; i < (int)paths.size(); i++) {
+    //cerr << "checking path[" << i << "] for disjointness with given path" << endl;
+    //cerr << paths[i].ToDebugString() << endl;
     if (start_path.isPartlyDisjoint(paths[i], disjoint_length)) {
       disjoint_path_ids.push_back(i);
     }
@@ -218,7 +220,7 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
   //cerr << "DISJOINT PATHS WITH SCORES:" << endl;
   //for (int path_id: disjoint_path_ids) {
   //  if (path_score[path_id] > 0)  cerr << path_score[path_id] << "\t!! " << paths[path_id].ToDebugString() << endl;
-  //  //else cerr << "-\t   " << paths[path_id].ToDebugString() << endl;
+  //  else cerr << "-\t   " << paths[path_id].ToDebugString() << endl;
   //}
 
   // choose randomly (based on score) the walk to join (with the orientation and complementarity)
@@ -250,9 +252,9 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
   const vector<Node*> xer_drb = G->GetDrainageBasinForNode(xer);
 
   //cerr << "yb_drb\t:: "; for(auto x: yb_drb) cerr << x->id_ << " "; cerr << endl;
-  //cerr << "ybr_drb\t:: "; for(auto x: ybr_drb) cerr << x->id_ << " "; cerr << endl;
+  //cerr << "yer_drb\t:: "; for(auto x: yer_drb) cerr << x->id_ << " "; cerr << endl;
   //cerr << "xb_drb\t:: "; for(auto x: xb_drb) cerr << x->id_ << " "; cerr << endl;
-  //cerr << "xbr_drb\t:: "; for(auto x: xbr_drb) cerr << x->id_ << " "; cerr << endl;
+  //cerr << "xer_drb\t:: "; for(auto x: xer_drb) cerr << x->id_ << " "; cerr << endl;
 
   unordered_set<int> first_pool_ids, second_pool_ids;
 
@@ -391,7 +393,7 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
       best_path = np;
     }*/
   }
-  out_paths.pop_back();
+  //out_paths.pop_back(); <-- it removed some valid path not meant to be deleted
   out_paths.push_back(best_path);
   return true;
 }
