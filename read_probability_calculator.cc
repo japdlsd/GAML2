@@ -325,6 +325,29 @@ GlobalProbabilityCalculator::GlobalProbabilityCalculator(const Config& config) {
         paired_reads.weight()
     ));
   }
+
+  for (auto &hic_reads: config.hic_reads()) {
+    HICReadSet<>* rs = new HICReadSet<>();
+    rs->LoadReadSet(hic_reads.filename1(), hic_reads.filename2());
+    hic_read_sets_.push_back(rs);
+    hic_read_calculators_.push_back(make_pair(
+        HICReadProbabilityCalculator(
+            rs,
+            hic_reads.insert_prob(),
+            hic_reads.del_prob(),
+            hic_reads.subst_prob(),
+            hic_reads.translocation_prob(),
+            hic_reads.min_prob_start(),
+            hic_reads.min_prob_per_base(),
+            hic_reads.penalty_constant(),
+            hic_reads.penalty_step(),
+            hic_reads.mean_distance(),
+            hic_reads.std_distance(),
+            hic_reads.use_as_advice()
+        ),
+        hic_reads.weight()
+    ));
+  }
 }
 
 double GlobalProbabilityCalculator::GetPathsProbability(
@@ -346,6 +369,14 @@ double GlobalProbabilityCalculator::GetPathsProbability(
     prob_changes.paired_read_changes.push_back(ch);
   }
 
+  prob_changes.hic_read_changes.clear();
+  for (auto &hic_read_calculator: hic_read_calculators_) {
+    HICProbabilityChange ch;
+    double prob = hic_read_calculator.first.GetPathsProbability(paths, ch);
+    total_prob += prob * hic_read_calculator.second;
+    prob_changes.hic_read_changes.push_back(ch);
+  }
+
   total_prob += GetAprioriPathsLogProbability(paths);
   return total_prob;
 }
@@ -361,6 +392,11 @@ void GlobalProbabilityCalculator::CommitProbabilityChanges(
   for (size_t i = 0; i < paired_read_calculators_.size(); i++) {
     paired_read_calculators_[i].first.CommitProbabilityChange(prob_changes.paired_read_changes[i]);
   }
+
+  assert(prob_changes.hic_read_changes.size() == hic_read_calculators_.size());
+  for (size_t i = 0; i < hic_read_calculators_.size(); i++) {
+    hic_read_calculators_[i].first.CommitProbabilityChange(prob_changes.hic_read_changes[i]);
+  }
 }
 double GlobalProbabilityCalculator::GetAprioriPathsLogProbability(const vector<Path> &paths) {
   int prob = 0;
@@ -369,4 +405,73 @@ double GlobalProbabilityCalculator::GetAprioriPathsLogProbability(const vector<P
     prob += length;
   }
   return -prob * log(4);
+}
+double HICReadProbabilityCalculator::InitTotalLogProb() {
+  double ret = 0;
+  for (size_t i = 0; i < read_set_->size(); i++) {
+    read_probs_[i] = 0;
+    //ret += GetMinLogProbability((*read_set_)[i].first.size() + (*read_set_)[i].second.size()) / read_set_->size();
+    ret += GetMinLogProbability((*read_set_)[i].first.size() + (*read_set_)[i].second.size());
+  }
+  return ret;
+}
+double HICReadProbabilityCalculator::GetMinLogProbability(int read_length) const {
+  // see "Reads that have no good alignment to A" in the  GAML article
+  return min_prob_start_ + read_length * min_prob_per_base_;
+}
+double HICReadProbabilityCalculator::GetPathsProbability(const vector<Path> &paths, HICProbabilityChange &prob_change) {
+  prob_change.added_paths.clear();
+  prob_change.removed_paths.clear();
+  prob_change.added_alignments.clear();
+  prob_change.removed_alignments.clear();
+  ComparePathSets(old_paths_, paths, prob_change.added_paths, prob_change.removed_paths);
+
+  prob_change.new_paths_length = GetPathsLength(paths);
+  prob_change.new_paths = paths;
+
+  EvalProbabilityChange(prob_change);
+
+  return EvalTotalProbabilityFromChange(prob_change);
+}
+int HICReadProbabilityCalculator::GetPathsLength(const vector<Path> &paths) const {
+  // same as for SingleReadProbabilityCalculator
+  // @TODO refactor later
+  int ret = 0;
+  for (auto &p: paths) {
+    ret += p.ToString(true).size();
+  }
+  return ret;
+}
+void HICReadProbabilityCalculator::CommitProbabilityChange(const HICProbabilityChange &prob_change) {
+  EvalTotalProbabilityFromChange(prob_change, true);
+  old_paths_ = prob_change.new_paths;
+  old_paths_length_ = prob_change.new_paths_length;
+
+}
+void HICReadProbabilityCalculator::EvalProbabilityChange(HICProbabilityChange &prob_change, bool debug_output) {
+  /*
+  for (size_t i = 0; i < prob_change.added_paths.size(); i++) {
+    auto &p = prob_change.added_paths[i];
+    auto als = path_aligner_.GetAlignmentsForPath(p);
+    prob_change.added_alignments.insert(prob_change.added_alignments.end(), als.begin(), als.end());
+    if (debug_output) printf("\n(added_paths) done %d/%d evals; %d alignments", (int) i+1, (int) prob_change.added_paths.size(), (int) als.size());
+    if (debug_output) fflush(stdout);
+  }
+  if (debug_output) printf("\n");
+  for (size_t i = 0; i < prob_change.removed_paths.size(); i++) {
+    auto &p = prob_change.removed_paths[i];
+    auto als = path_aligner_.GetAlignmentsForPath(p);
+    prob_change.removed_alignments.insert(prob_change.removed_alignments.end(), als.begin(), als.end());
+    if (debug_output) printf("\n(removed_paths) done %d/%d evals;  %d alignments", (int) i+1, (int) prob_change.removed_paths.size(), (int) als.size());
+    if (debug_output) fflush(stdout);
+  }
+  if (debug_output) printf("\n");
+   */
+  auto als = path_aligner_.GetCrossAlignments(prob_change.added_paths, prob_change.new_paths);
+  auto als = path_aligner_.GetCrossAlignments(prob_change.removed_paths, prob_change.new_paths);
+}
+double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICProbabilityChange &prob_change,
+                                                                    bool write) {
+  // @TODO implement
+  return 0;
 }

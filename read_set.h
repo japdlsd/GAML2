@@ -130,7 +130,8 @@ class RandomIndex {
 };
 
 
-template<class TIndex=StandardReadIndex>
+//template<class TIndex=StandardReadIndex>
+template<class TIndex=RandomIndex>
 class SingleShortReadSet {
   class VisitedPositions {
    vector<vector<int>> vp_;
@@ -246,7 +247,8 @@ private:
   int minSufficientLength;
 };
 
-template<class TIndex=StandardReadIndex>
+//template<class TIndex=StandardReadIndex>
+template<class TIndex=RandomIndex>
 class ShortPairedReadSet {
   // @TODO add testing
  public:
@@ -285,7 +287,8 @@ class ShortPairedReadSet {
                        PairedReadAlignment &al) const;
 };
 
-template<class TIndex=StandardReadIndex>
+//template<class TIndex=StandardReadIndex>
+template<class TIndex=RandomIndex>
 class HICReadSet {
  public:
   HICReadSet() {

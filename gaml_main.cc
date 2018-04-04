@@ -30,8 +30,8 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
 
   probability_calculator.CommitProbabilityChanges(prob_changes);
 
-  cout << "INITIAL PATHS:" << endl;
-  cout << PathsToDebugString(paths) << endl;
+  //cout << "INITIAL PATHS:" << endl;
+  //cout << PathsToDebugString(paths) << endl;
 
   ofstream iter_log(gaml_config.iter_log_file());
   iter_log.precision(15);
@@ -89,7 +89,8 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
       probability_calculator.CommitProbabilityChanges(prob_changes);
       total_size = prob_changes.getLength();
     }
-    cout << endl << "PROPOSED PATHS:\n" <<  PathsToDebugString(new_paths) << endl << endl;
+    // @TODO print only changes, because it's silly to print all the stuff
+    //cout << endl << "PROPOSED PATHS:\n" <<  PathsToDebugString(new_paths) << endl << endl;
 
     // continual output
 

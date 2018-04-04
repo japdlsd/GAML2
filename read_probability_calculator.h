@@ -199,10 +199,10 @@ class HICReadProbabilityCalculator {
  public:
   HICReadProbabilityCalculator(
       HICReadSet<>* read_set,
-      //double mismatch_prob,
       double insert_prob,
       double del_prob,
       double subst_prob,
+      double translocation_prob,
       double min_prob_start,
       double min_prob_per_base,
       double penalty_constant,
@@ -212,6 +212,7 @@ class HICReadProbabilityCalculator {
       bool use_as_advice
   ): read_set_(read_set), path_aligner_(read_set), //mismatch_prob_(mismatch_prob),
      insert_prob_(insert_prob), del_prob_(del_prob), subst_prob_(subst_prob),
+     translocation_prob_(translocation_prob),
      min_prob_start_(min_prob_start), min_prob_per_base_(min_prob_per_base),
      penalty_constant_(penalty_constant), penalty_step_(penalty_step),
      old_paths_length_(1), mean_distance_(mean_distance),
@@ -222,11 +223,11 @@ class HICReadProbabilityCalculator {
   }
   // Call this first
   double GetPathsProbability(
-      const vector<Path>& paths, PairedProbabilityChange& prob_change);
+      const vector<Path>& paths, HICProbabilityChange& prob_change);
 
   // Call this after you are happy with current result (i.e. you got better
   // probability)
-  void CommitProbabilityChange(const PairedProbabilityChange& prob_change);
+  void CommitProbabilityChange(const HICProbabilityChange& prob_change);
 
 
   bool use_as_advice_;
@@ -234,9 +235,10 @@ class HICReadProbabilityCalculator {
   double mean_distance_;
   double std_distance_;
   // Evals change with filled added and removed paths
-  void EvalProbabilityChange(PairedProbabilityChange& prob_change, bool debug_output=true);
+  void EvalProbabilityChange(HICProbabilityChange& prob_change, bool debug_output=true);
   // Get total probability from change and cached data
-  double EvalTotalProbabilityFromChange(const PairedProbabilityChange& prob_change, bool write=false) ;
+  double EvalTotalProbabilityFromChange(const HICProbabilityChange &prob_change,
+                                        bool write=false);
   int GetPathsLength(const vector<Path>& paths) const;
  private:
 
@@ -247,13 +249,14 @@ class HICReadProbabilityCalculator {
   // max(min_prob, prob)
   double GetRealReadProbability(double prob, int read_id) const;
 
-  double GetAlignmentProb(const PairedReadAlignment& al) const;
+  double GetAlignmentProb(const HICReadAlignment& al) const;
 
   HICReadSet<>* read_set_;
   //double mismatch_prob_;
   double insert_prob_;
   double del_prob_;
   double subst_prob_;
+  double translocation_prob_;
   double min_prob_start_;
   double min_prob_per_base_;
   double penalty_constant_;
@@ -284,6 +287,7 @@ class GlobalProbabilityCalculator {
 
   vector<SingleShortReadSet<>*> single_short_read_sets_;
   vector<ShortPairedReadSet<>*> paired_read_sets_;
+  vector<HICReadSet<>*> hic_read_sets_;
   // (prob calculator, weight)
   // @TODO do you speak polymorphism? (vytvorit template na read calculatory) (i3)
   vector<pair<SingleReadProbabilityCalculator, double>> single_read_calculators_;

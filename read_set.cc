@@ -569,7 +569,10 @@ pair<string, int> eval_orientation(const SingleReadAlignment& als1, const int r1
 
 template <class TIndex>
 void HICReadSet<TIndex>::LoadReadSet(istream &is1, istream &is2) {
-  // @TODO IMPLEMENT HIGH PRIORITY
+  reads_1_.LoadReadSet(is1);
+  reads_2_.LoadReadSet(is2);
+  assert(reads_1_.size() == reads_2_.size());
+
 }
 template<class TIndex>
 vector<PairedReadAlignment> HICReadSet<TIndex>::GetAlignments(const string &genome, const bool debug_output) const {
