@@ -88,9 +88,14 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
       paths = new_paths;
       probability_calculator.CommitProbabilityChanges(prob_changes);
       total_size = prob_changes.getLength();
+
+      if ( !prob_changes.paired_read_changes.empty() ) {
+        cout << "ACCEPTED ADDINGS: " << "\n";
+        cout << PathsToDebugString(prob_changes.paired_read_changes[0].added_paths) << "\n";
+        cout << "ACCEPTED REMOVALS: " << "\n";
+        cout << PathsToDebugString(prob_changes.paired_read_changes[0].removed_paths) << endl;
+      }
     }
-    // @TODO print only changes, because it's silly to print all the stuff
-    //cout << endl << "PROPOSED PATHS:\n" <<  PathsToDebugString(new_paths) << endl << endl;
 
     // continual output
 
