@@ -33,18 +33,6 @@ class SingleShortReadPathAligner {
       if (cache_.size() >= MAX_CACHE_SIZE) RemoveAllAlignments();
       sort(al.begin(), al.end());
       cache_.push_back(make_tuple(p, al, next_usage_t_++));
-      /*while (cache_.size() > MAX_CACHE_SIZE) {
-        int oldest_pos = 0;
-        for (int i = 0; i < (int)cache_.size(); i++) {
-          const auto &t = cache_[i];
-          const auto &o = cache_[oldest_pos];
-          if (get<2>(t) < get<2>(o)) {
-            oldest_pos = i;
-          }
-        }
-        swap(cache_[oldest_pos], cache_.back());
-        cache_.pop_back();
-      }*/
     }
   }
 
@@ -103,18 +91,6 @@ class PairedReadPathAligner {
       if (cache_.size() >= MAX_CACHE_SIZE) RemoveAllAlignments();
       sort(al.begin(), al.end());
       cache_.push_back(make_tuple(p, al, next_usage_t_++));
-      /*while (cache_.size() > MAX_CACHE_SIZE) {
-        int oldest_pos = 0;
-        for (int i = 0; i < (int)cache_.size(); i++) {
-          const auto &t = cache_[i];
-          const auto &o = cache_[oldest_pos];
-          if (get<2>(t) < get<2>(o)) {
-            oldest_pos = i;
-          }
-        }
-        swap(cache_[oldest_pos], cache_.back());
-        cache_.pop_back();
-      }*/
     }
   }
 
