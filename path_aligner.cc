@@ -109,3 +109,64 @@ vector<SingleReadAlignment> PairedReadPathAligner::GetPartAlignmentsForPath(cons
   }
   return ret;
 }
+vector<SingleReadAlignment> HICReadPathAligner::GetPartAlignmentsForPath(const Path &p, int part) {
+  vector<SingleReadAlignment> ret;
+  if (part == 0) {
+    ret = left_aligner_.GetAlignmentsForPath(p);
+  }
+  else if (part == 1) {
+    ret = right_aligner_.GetAlignmentsForPath(p);
+  }
+  return ret;
+}
+double HICReadPathAligner::eval_lambda(const Path &p) {
+  int total_count = 0;
+  double res = 0;
+
+  vector<SingleReadAlignment> lefties, righties;
+  auto als_left = GetPartAlignmentsForPath(p, 0);
+  auto als_right = GetPartAlignmentsForPath(p, 1);
+
+  // assume alignments are sorted
+  auto it_al1 = als_left.begin();
+  auto it_al2 = als_right.begin();
+
+  const auto &reads_1_ = *(left_aligner_.single_short_read_set_);
+  const auto &reads_2_ = *(right_aligner_.single_short_read_set_);
+  const auto reads_1_size = (int)reads_1_.size();
+
+  for (int read_id = 0; it_al1!=als_left.end() && it_al2!=als_right.end(); read_id++) {
+    while (it_al1 != als_left.end() && it_al1->read_id < read_id) it_al1++;
+    while (it_al2 != als_right.end() && it_al2->read_id < read_id) it_al2++;
+    lefties.clear();
+    righties.clear();
+    while (it_al1 != als_left.end() && it_al1->read_id == read_id) {
+      lefties.push_back(*it_al1);
+      it_al1++;
+    }
+    while (it_al2 != als_right.end() && it_al2->read_id == read_id) {
+      righties.push_back(*it_al2);
+      it_al2++;
+    }
+
+    if (!lefties.empty() && !righties.empty()) {
+      for (auto al1: lefties) {
+        for (auto al2: righties) {
+          pair<string,int> or_ins = eval_orientation(al1, (int)reads_1_[read_id].size(), al2, (int)reads_2_[read_id].size());
+          int insert_length = or_ins.second;
+          if (total_count == 0) {
+            total_count = 1;
+            res = insert_length;
+          }
+          else {
+            res = res * total_count + insert_length;
+            total_count += 1;
+            res /= total_count;
+          }
+
+        }
+      }
+    }
+  }
+  return res;
+}

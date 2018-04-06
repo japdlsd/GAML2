@@ -374,24 +374,6 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
       best_path = np;
     }
     out_paths.pop_back();
-
-    /*
-    // @TODO check for correct initialising of pp_change
-    PairedProbabilityChange pp_change;
-    pp_change.added_paths.push_back(np);
-    pp_change.removed_paths.push_back(target_path);
-    pp_change.removed_paths.push_back(start_path);
-
-    pp_change.new_paths_length = pc.GetPathsLength(paths) - (int)start_path.ToString(true).size() - (int)target_path.ToString(true).size() + (int)np.ToString(true).size();
-    //pp_change.new_paths = paths;
-
-    pc.EvalProbabilityChange(pp_change, false);
-    double score = pc.EvalTotalProbabilityFromChange(pp_change, false);
-    cerr << "Path (score: "<< score << "): " << np.ToDebugString() << endl;
-    if (score > best_score) {
-      best_score = score;
-      best_path = np;
-    }*/
   }
   //out_paths.pop_back(); <-- it removed some valid path not meant to be deleted
   out_paths.push_back(best_path);

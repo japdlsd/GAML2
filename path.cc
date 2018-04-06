@@ -231,3 +231,37 @@ void ComparePathSets(const vector<Path>& a,
     }
   }
 }
+void ComparePathSetsWithStill(const vector<Path> &old_paths,
+                              const vector<Path> &new_paths,
+                              vector<Path> &added,
+                              vector<Path> &removed,
+                              vector<Path> &kept) {
+  for (auto &o: old_paths) {
+    bool is_in_new = false;
+    for (auto &n: new_paths) {
+      if (n.IsSame(o)) {
+        is_in_new = true;
+        break;
+      }
+    }
+    if (is_in_new) {
+      kept.push_back(o);
+    }
+    else {
+      removed.push_back(o);
+    }
+  }
+
+  for (auto &n: new_paths) {
+    bool is_in_old = false;
+    for (auto &o: old_paths) {
+      if (n.IsSame(o)) {
+        is_in_old = true;
+        break;
+      }
+    }
+    if (!is_in_old) {
+      added.push_back(n);
+    }
+  }
+}

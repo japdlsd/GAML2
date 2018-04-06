@@ -31,9 +31,7 @@ struct PairedProbabilityChange {
 struct HICProbabilityChange {
   vector<Path> added_paths;
   vector<Path> removed_paths;
-
-  vector<HICReadAlignment> added_alignments;
-  vector<HICReadAlignment> removed_alignments;
+  vector<Path> still_paths;
 
   int new_paths_length;
 
@@ -159,12 +157,14 @@ class PairedReadProbabilityCalculator {
   PairedReadPathAligner path_aligner_;
   double mean_distance_;
   double std_distance_;
+
+  int GetPathsLength(const vector<Path>& paths) const;
+ private:
+
   // Evals change with filled added and removed paths
   void EvalProbabilityChange(PairedProbabilityChange& prob_change, bool debug_output=true);
   // Get total probability from change and cached data
   double EvalTotalProbabilityFromChange(const PairedProbabilityChange& prob_change, bool write=false) ;
-  int GetPathsLength(const vector<Path>& paths) const;
- private:
 
   double InitTotalLogProb();
 
@@ -203,21 +203,21 @@ class HICReadProbabilityCalculator {
       double del_prob,
       double subst_prob,
       double translocation_prob,
+      int binsize,
       double min_prob_start,
       double min_prob_per_base,
       double penalty_constant,
       int penalty_step,
-      double mean_distance,
-      double std_distance,
       bool use_as_advice
   ): read_set_(read_set), path_aligner_(read_set), //mismatch_prob_(mismatch_prob),
      insert_prob_(insert_prob), del_prob_(del_prob), subst_prob_(subst_prob),
      translocation_prob_(translocation_prob),
      min_prob_start_(min_prob_start), min_prob_per_base_(min_prob_per_base),
      penalty_constant_(penalty_constant), penalty_step_(penalty_step),
-     old_paths_length_(1), mean_distance_(mean_distance),
-     std_distance_(std_distance), use_as_advice_(use_as_advice) {
-    read_probs_.resize(read_set_->size());
+     old_paths_length_(1), binsize_(binsize), use_as_advice_(use_as_advice) {
+    //read_probs_.resize(read_set_->size());
+    read_cis_phis_.resize(read_set_->size());
+    read_trans_psis_.resize(read_set_->size());
     total_log_prob_ = InitTotalLogProb();
 
   }
@@ -232,8 +232,7 @@ class HICReadProbabilityCalculator {
 
   bool use_as_advice_;
   HICReadPathAligner path_aligner_;
-  double mean_distance_;
-  double std_distance_;
+
   // Evals change with filled added and removed paths
   void EvalProbabilityChange(HICProbabilityChange& prob_change, bool debug_output=true);
   // Get total probability from change and cached data
@@ -246,10 +245,14 @@ class HICReadProbabilityCalculator {
 
   double GetMinLogProbability(int read_length) const;
 
+  double GetCisScore(SingleReadAlignment al1, int a1_len, SingleReadAlignment al2, int a2_len, double lambda);
+
+  double GetTransScore (SingleReadAlignment al1, SingleReadAlignment al2);
+
   // max(min_prob, prob)
   double GetRealReadProbability(double prob, int read_id) const;
 
-  double GetAlignmentProb(const HICReadAlignment& al) const;
+  //double GetAlignmentProb(const HICReadAlignment& al) const;
 
   HICReadSet<>* read_set_;
   //double mismatch_prob_;
@@ -263,10 +266,11 @@ class HICReadProbabilityCalculator {
   int penalty_step_;
   int old_paths_length_;
   double total_log_prob_;
-  //double mean_distance_;
-  //double std_distance_;
+  int binsize_;
 
-  vector<double> read_probs_;
+  //vector<double> read_probs_;
+  vector<double> read_cis_phis_;
+  vector<double> read_trans_psis_;
   vector<Path> old_paths_;
 
 };

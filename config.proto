@@ -42,8 +42,8 @@ message HiCReadSet {
     required string filename1 = 1;
     // filename is relative to executing directory (fastq file)
     required string filename2 = 8;
-    required double mean_distance = 9;
-    required double std_distance = 10;
+    // bins to eval distribution of insert sizes (bucket sizes)
+    required int32 binsize = 9 [default = 1000];
 
     optional string orientation = 12 [default = "FR"];
     // @DEPRECATED optional double mismatch_prob = 15 [default = 0.05];
@@ -53,7 +53,7 @@ message HiCReadSet {
     optional double subst_prob = 14 [default = 0.01];
 
     // probability that reads are on different chromosomes
-    optional double translocation_prob = 15 [default = 0.05];
+    optional double translocation_prob = 15 [default = 0.11];
 
     optional double min_prob_start = 3 [default = -10];
     optional double min_prob_per_base = 4 [default = -0.7];

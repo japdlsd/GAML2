@@ -78,4 +78,10 @@ void ComparePathSets(const vector<Path>& a,
                      const vector<Path>& b,
                      vector<Path>& added,
                      vector<Path>& removed);
+
+void ComparePathSetsWithStill(const vector<Path>& a,
+                              const vector<Path>& b,
+                              vector<Path>& added,
+                              vector<Path>& removed,
+                              vector<Path>& kept);
 #endif 

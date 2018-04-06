@@ -153,65 +153,15 @@ class HICReadPathAligner {
     right_aligner_ = SingleShortReadPathAligner(&(hic_read_set_->reads_2_));
   }
 
-  vector<HICReadAlignment> GetAlignmentsForPath(const Path& p);
+  //vector<HICReadAlignment> GetAlignmentsForPath(const Path& p);
   // part = 0 or 1 (0 for left, 1 for right)
   vector<SingleReadAlignment> GetPartAlignmentsForPath(const Path& p, int part);
+
+  double eval_lambda(const Path& p);
 
   HICReadSet<>* hic_read_set_;
 
   SingleShortReadPathAligner left_aligner_, right_aligner_;
-
- private:
-  //vector<HICReadAlignment> GetAlignmentForPathNoCache(const Path& p);
-  vector<HICReadAlignment> GetAlignmentForPathWithCache(const Path& p);
-
-  const static int MAX_CACHE_SIZE = 10000;
-  long long next_usage_t_ = 0;
-  vector<tuple<Path, vector<HICReadAlignment>, long long>> cache_;
-  void InsertAlignmentForPath(const Path& p, vector<HICReadAlignment>& al) {
-    int pos = GetAlignmentPos(p);
-    if (pos == -1) {
-      if (cache_.size() >= MAX_CACHE_SIZE) RemoveAllAlignments();
-      sort(al.begin(), al.end());
-      cache_.push_back(make_tuple(p, al, next_usage_t_++));
-      /*while (cache_.size() > MAX_CACHE_SIZE) {
-        int oldest_pos = 0;
-        for (int i = 0; i < (int)cache_.size(); i++) {
-          const auto &t = cache_[i];
-          const auto &o = cache_[oldest_pos];
-          if (get<2>(t) < get<2>(o)) {
-            oldest_pos = i;
-          }
-        }
-        swap(cache_[oldest_pos], cache_.back());
-        cache_.pop_back();
-      }*/
-    }
-  }
-
-  void RemoveAllAlignments() {
-    cache_.clear();
-    next_usage_t_ = 0;
-  }
-
-  int GetAlignmentPos(const Path& p) const{
-    int res = -1;
-    for (int i = 0; i < (int)cache_.size(); i++) {
-      const auto t = cache_[i];
-      if (get<0>(t).IsSameNoReverse(p)) {
-        res = i;
-        break;
-      }
-    }
-    return res;
-  }
-
-  vector<HICReadAlignment> GetCachedAlignmentByPos(int pos) {
-    assert(0 <= pos && pos < (int)cache_.size());
-    auto &t = cache_[pos];
-    get<2>(t) = next_usage_t_++;
-    return get<1>(t);
-  }
 
 };
 

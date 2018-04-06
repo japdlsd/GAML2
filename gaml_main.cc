@@ -89,8 +89,9 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
       probability_calculator.CommitProbabilityChanges(prob_changes);
       total_size = prob_changes.getLength();
 
+      // debug log
       if ( !prob_changes.paired_read_changes.empty() ) {
-        cout << "ACCEPTED ADDINGS: " << "\n";
+        cout << "\nACCEPTED ADDINGS: " << "\n";
         cout << PathsToDebugString(prob_changes.paired_read_changes[0].added_paths) << "\n";
         cout << "ACCEPTED REMOVALS: " << "\n";
         cout << PathsToDebugString(prob_changes.paired_read_changes[0].removed_paths) << endl;
