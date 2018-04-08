@@ -149,12 +149,43 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
 
   // align paired reads to the start path
   vector<SingleReadAlignment> start_left_alignments = pc.path_aligner_.GetPartAlignmentsForPath(start_path, 0);
-  sort(start_left_alignments.begin(), start_left_alignments.end());
+  //sort(start_left_alignments.begin(), start_left_alignments.end());
   vector<SingleReadAlignment> start_right_alignments = pc.path_aligner_.GetPartAlignmentsForPath(start_path, 1);
-  sort(start_right_alignments.begin(), start_right_alignments.end());
+  //sort(start_right_alignments.begin(), start_right_alignments.end());
 
   //cerr << "paired reads aligned to the start path" << endl;
 
+
+  unordered_map<int,int> start_left_count, start_right_count;
+  for (auto al: start_left_alignments){
+    start_left_count[al.read_id] = 1 + start_left_count[al.read_id];
+  }
+  for (auto al: start_right_alignments) {
+    start_right_count[al.read_id] = 1 + start_right_count[al.read_id];
+  }
+
+  vector<int> path_score(paths.size(), 0);
+  vector<SingleReadAlignment> als1, als2;
+  for (int i: disjoint_path_ids) {
+    const Path& p = paths[i];
+    als1 = pc.path_aligner_.GetPartAlignmentsForPath(p, 0);
+    als2 = pc.path_aligner_.GetPartAlignmentsForPath(p, 1);
+
+    for (auto al1: als1) {
+      auto it = start_left_count.find(al1.read_id);
+      if (it != start_left_count.end()) {
+        path_score[i] += it->second;
+      }
+    }
+    for (auto al2: als2) {
+      auto it = start_right_count.find(al2.read_id);
+      if (it != start_right_count.end()) {
+        path_score[i] += it->second;
+      }
+    }
+  }
+
+/*
   // align all paired reads to the filtered paths
   vector<vector<SingleReadAlignment>> left_alignments(paths.size()), right_alignments(paths.size());
 
@@ -215,7 +246,7 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
 
       path_score[path_id] += start_left_count[read_id] * target_rights + start_right_count[read_id] * target_lefts;
     }
-  }
+  }*/
 
   //cerr << "DISJOINT PATHS WITH SCORES:" << endl;
   //for (int path_id: disjoint_path_ids) {
