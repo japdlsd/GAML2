@@ -97,6 +97,18 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
         cout << PathsToDebugString(prob_changes.paired_read_changes[0].removed_paths) << endl;
       }
     }
+    else {
+      if (!probability_calculator.paired_read_calculators_.empty()) {
+        probability_calculator.RemovePathsFromCache(prob_changes.paired_read_changes[0].added_paths);
+      }
+      else if (!probability_calculator.hic_read_calculators_.empty()) {
+        probability_calculator.RemovePathsFromCache(prob_changes.hic_read_changes[0].added_paths);
+      }
+      else if (!probability_calculator.single_read_calculators_.empty()) {
+        probability_calculator.RemovePathsFromCache(prob_changes.single_read_changes[0].added_paths);
+      }
+
+    }
 
     // continual output
 

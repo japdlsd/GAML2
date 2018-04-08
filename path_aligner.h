@@ -2,16 +2,61 @@
 #define PATH_ALIGNER_H__
 
 #include <algorithm>
+#include <unordered_map>
 #include "read_set.h"
 #include "hash_util.h"
 #include "path.h"
 
+
 // Handles caching of alignments
+
 
 class SingleShortReadPathAligner {
  public:
-  explicit SingleShortReadPathAligner() {}
-  explicit SingleShortReadPathAligner(SingleShortReadSet<>* single_short_read_set) : single_short_read_set_(single_short_read_set) {}
+  SingleShortReadPathAligner() {}
+  explicit SingleShortReadPathAligner(SingleShortReadSet<>* single_short_read_set): single_short_read_set_(single_short_read_set) {}
+  vector<SingleReadAlignment> GetAlignmentsForPath(const Path& p) {
+    auto it = cache_.find(p);
+    if (it != cache_.end()) return it->second;
+    auto res = single_short_read_set_->GetAlignments(p.ToString(true));
+    sort(res.begin(), res.end());
+    cache_[p] = res;
+    return res;
+  };
+  void RemovePathFromCache(const Path& p) {
+    cache_.erase(p);
+  }
+  void RemovePathsFromCache(const vector<Path>& paths) {
+    for (auto p: paths) {
+      cache_.erase(p);
+    }
+  }
+
+  void GetAlignmentsForPathByReference(const Path& p, vector<SingleReadAlignment>& output) {
+    auto it = cache_.find(p);
+    output.clear();
+
+    if (it != cache_.end()) {
+      output.insert(output.end(), it->second.begin(), it->second.end());
+    }
+    else {
+      auto res = single_short_read_set_->GetAlignments(p.ToString(true));
+      sort(res.begin(), res.end());
+      cache_[p] = res;
+      output.insert(output.end(), res.begin(), res.end());
+    }
+  }
+
+  SingleShortReadSet<>* single_short_read_set_;
+ private:
+  unordered_map<Path, vector<SingleReadAlignment>> cache_;
+
+};
+
+class SingleShortReadPathAlignerVector {
+ public:
+  explicit SingleShortReadPathAlignerVector() {}
+  explicit SingleShortReadPathAlignerVector(SingleShortReadSet<>* single_short_read_set) : single_short_read_set_(single_short_read_set) {}
   //explicit SingleShortReadPathAligner(SingleShortReadSet<StandardReadIndex>* single_short_read_set) : single_short_read_set_(single_short_read_set) {}
 
 
@@ -74,9 +119,60 @@ class PairedReadPathAligner {
   // part = 0 or 1 (0 for left, 1 for right)
   vector<SingleReadAlignment> GetPartAlignmentsForPath(const Path& p, int part);
 
+
+  void RemovePathFromCache(const Path& p) {
+    left_aligner_.RemovePathFromCache(p);
+    right_aligner_.RemovePathFromCache(p);
+    cache_.erase(p);
+  }
+  void RemovePathsFromCache(const vector<Path>& paths) {
+    left_aligner_.RemovePathsFromCache(paths);
+    right_aligner_.RemovePathsFromCache(paths);
+    for (auto &p: paths) {
+      cache_.erase(p);
+    }
+  }
+
   ShortPairedReadSet<>* paired_read_set_;
 
   SingleShortReadPathAligner left_aligner_, right_aligner_;
+
+
+ private:
+  unordered_map<Path, vector<PairedReadAlignment>> cache_;
+
+
+};
+
+/*
+class PairedReadPathAligner {
+ public:
+  explicit PairedReadPathAligner() {}
+  explicit PairedReadPathAligner(ShortPairedReadSet<>* paired_read_set): paired_read_set_(paired_read_set) {
+    left_aligner_ = SingleShortReadPathAligner(&(paired_read_set_->reads_1_));
+    right_aligner_ = SingleShortReadPathAligner(&(paired_read_set_->reads_2_));
+  }
+
+  vector<PairedReadAlignment> GetAlignmentsForPath(const Path& p);
+  // part = 0 or 1 (0 for left, 1 for right)
+  vector<SingleReadAlignment> GetPartAlignmentsForPath(const Path& p, int part);
+
+
+  void RemovePathFromCache(const Path& p) {
+    left_aligner_.RemovePathFromCache(p);
+    right_aligner_.RemovePathFromCache(p);
+    // @TODO dopisat to pre vrchnu uroven cache
+  }
+  void RemovePathsFromCache(const vector<Path>& paths) {
+    left_aligner_.RemovePathsFromCache(paths);
+    right_aligner_.RemovePathsFromCache(paths);
+    // @TODO dopisat to pre vrchnu uroven cache
+  }
+
+  ShortPairedReadSet<>* paired_read_set_;
+
+  SingleShortReadPathAligner left_aligner_, right_aligner_;
+
 
  private:
   vector<PairedReadAlignment> GetAlignmentForPathNoCache(const Path& p);
@@ -118,8 +214,7 @@ class PairedReadPathAligner {
     return get<1>(t);
   }
 
-};
-
+};*/
 class HICReadPathAligner {
   // @TODO implement HIC stuff
  public:
@@ -135,10 +230,25 @@ class HICReadPathAligner {
 
   double eval_lambda(const Path& p);
 
+  void RemovePathFromCache(const Path& p) {
+    left_aligner_.RemovePathFromCache(p);
+    right_aligner_.RemovePathFromCache(p);
+
+    lambda_cache_.erase(p);
+  }
+  void RemovePathsFromCache(const vector<Path>& paths) {
+    left_aligner_.RemovePathsFromCache(paths);
+    right_aligner_.RemovePathsFromCache(paths);
+    for (auto &p: paths) {
+      lambda_cache_.erase(p);
+    }
+  }
+
   HICReadSet<>* hic_read_set_;
 
   SingleShortReadPathAligner left_aligner_, right_aligner_;
-
+ private:
+  unordered_map<Path, double> lambda_cache_;
 };
 
 #endif

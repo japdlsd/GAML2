@@ -66,11 +66,13 @@ string PathsToDebugString(const vector<Path>& paths) {
 
 void Path::AppendPath(const Path& p, int p_start) {
   nodes_.insert(nodes_.end(), p.nodes_.begin() + p_start, p.nodes_.end());
+  RecomputeLength();
 }
 
 void Path::AppendPathWithGap(const Path& p, int gap_length, int p_start) {
   nodes_.push_back(MakeGap(gap_length));
   nodes_.insert(nodes_.end(), p.nodes_.begin() + p_start, p.nodes_.end());
+  RecomputeLength();
 }
 
 void Path::Reverse() {
@@ -129,11 +131,13 @@ bool Path::ExtendRandomly(int big_node_threshold, int step_threshold, int distan
     Node* next_node = last_node->next_[rand()%last_node->next_.size()];
     nodes_.push_back(next_node);
     if ((int)next_node->str_.size() >= big_node_threshold) {
+      RecomputeLength();
       return true;
     }
     added_steps += 1;
     added_distance += next_node->str_.size();
   } while (added_distance <= distance_threshold && added_steps <= step_threshold);
+  RecomputeLength();
   return false;
 }
 
@@ -146,6 +150,7 @@ Path Path::CutAt(int pos, int big_node_threshold) {
   if (part2_start < nodes_.size()) p2 = Path(vector<Node*>(nodes_.begin() + part2_start, nodes_.end()), history_);
 
   nodes_ = vector<Node*>(nodes_.begin(), nodes_.begin() + (part1_end + 1));
+  RecomputeLength();
   return p2;
 }
 bool Path::isDisjoint(const Path &p) const {

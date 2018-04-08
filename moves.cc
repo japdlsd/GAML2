@@ -161,9 +161,9 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
   int counter = 0;
   for (int i: disjoint_path_ids) {
     left_alignments[i] = pc.path_aligner_.GetPartAlignmentsForPath(paths[i], 0);
-    sort(left_alignments[i].begin(), left_alignments[i].end());
+    //sort(left_alignments[i].begin(), left_alignments[i].end());
     right_alignments[i] = pc.path_aligner_.GetPartAlignmentsForPath(paths[i], 1);
-    sort(right_alignments[i].begin(), right_alignments[i].end());
+    //sort(right_alignments[i].begin(), right_alignments[i].end());
 
     // debug output
     counter++;
@@ -303,6 +303,7 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
     unordered_set<int> desired_targets({xb->id_, xer->id_});
     for (int num = 0; num < SAMPLE_NUM; num++) {
       Path p = SampleRandomWalk(ye, second_pool_ids, desired_targets, MAX_CONN_LENGTH);
+      cout << "\r" << num+1 << " paths sampled";
       if (p.back() == xb || p.back() == xer) {
         bool is_new_path = true;
         for (const auto ex_p: possible_connections) {
@@ -315,6 +316,7 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
       }
     }
   }
+  cout << endl;
 
   //cerr << "possible connections: " << endl;
   //for (auto &p: possible_connections) {
@@ -371,7 +373,11 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
     ProbabilityChanges pp_change;
     double score = pc_global.GetPathsProbability(out_paths, pp_change);
     if (score > best_score) {
+      pc_global.RemovePathFromCache(best_path);
       best_path = np;
+    }
+    else {
+      pc_global.RemovePathFromCache(np);
     }
     out_paths.pop_back();
   }
@@ -666,11 +672,11 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
   for (auto &p: paths) {
     if (!p.IsSame(p1) && !p.IsSame(p2)) new_paths.push_back(p);
   }
-  cerr << "old: ";
-  cerr << PathsToDebugString(paths);
-  cerr << "new without changed: ";
-  cerr << PathsToDebugString(new_paths);
-  cerr << "new_paths.size(): " << new_paths.size() << "; paths.size(): " << paths.size() << endl;
+  //cerr << "old: ";
+  //cerr << PathsToDebugString(paths);
+  //cerr << "new without changed: ";
+  //cerr << PathsToDebugString(new_paths);
+  //cerr << "new_paths.size(): " << new_paths.size() << "; paths.size(): " << paths.size() << endl;
   assert(new_paths.size() + 2 == paths.size());
 
   double best_prob = -100000000;
@@ -694,18 +700,22 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
     }
   }
 
-  const int removed_paths_length = (int)p1.ToString(true).size() + (int)p2.ToString(true).size();
-  int added_paths_length = 0;
-  for (auto &p: added_paths[best_k]) added_paths_length += p.ToString(true).size();
+  for (int k = 0; k < (int)added_paths.size(); k++) {
+    if (k != best_k) probability_calculator.RemovePathsFromCache(added_paths[k]);
+  }
 
-  if (1){
+  const int removed_paths_length = (int)p1.GetLength() + (int)p2.GetLength();
+  int added_paths_length = 0;
+  for (auto &p: added_paths[best_k]) added_paths_length += p.GetLength();
+
+  if (0){
     cerr << "removed paths: \n";
-    cerr << "[L:" << p1.ToString(true).size() << "]\t" << p1.ToDebugString() << endl;
-    cerr << "[L:" << p2.ToString(true).size() << "]\t" << p2.ToDebugString() << endl;
+    cerr << "[L:" << p1.GetLength() << "]\t" << p1.ToDebugString() << endl;
+    cerr << "[L:" << p2.GetLength() << "]\t" << p2.ToDebugString() << endl;
 
     cerr << "best added_paths: \n";
     for (int i = 0; i < (int)added_paths[best_k].size(); i++) {
-      cerr << "[L:" << added_paths[best_k][i].ToString(true).size() << "]\t" << added_paths[best_k][i].ToDebugString() << endl;
+      cerr << "[L:" << added_paths[best_k][i].GetLength() << "]\t" << added_paths[best_k][i].ToDebugString() << endl;
     }
   }
 

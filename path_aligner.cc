@@ -1,15 +1,15 @@
 #include "path_aligner.h"
 
-vector<SingleReadAlignment> SingleShortReadPathAligner::GetAlignmentsForPath(const Path& p) {
+vector<SingleReadAlignment> SingleShortReadPathAlignerVector::GetAlignmentsForPath(const Path& p) {
   return GetAlignmentForPathWithCache(p);
 }
-vector<SingleReadAlignment> SingleShortReadPathAligner::GetAlignmentForPathNoCache(const Path &p) {
+vector<SingleReadAlignment> SingleShortReadPathAlignerVector::GetAlignmentForPathNoCache(const Path &p) {
   vector<SingleReadAlignment> ret;
   string genome = p.ToString(true);
   ret = single_short_read_set_->GetAlignments(genome);
   return ret;
 }
-vector<SingleReadAlignment> SingleShortReadPathAligner::GetAlignmentForPathWithCache(const Path &p) {
+vector<SingleReadAlignment> SingleShortReadPathAlignerVector::GetAlignmentForPathWithCache(const Path &p) {
   vector<SingleReadAlignment> ret;
 
   const int pos = GetAlignmentPos(p);
@@ -25,79 +25,61 @@ vector<SingleReadAlignment> SingleShortReadPathAligner::GetAlignmentForPathWithC
   return ret;
 }
 vector<PairedReadAlignment> PairedReadPathAligner::GetAlignmentsForPath(const Path &p) {
-  return GetAlignmentForPathWithCache(p);
-}
-vector<PairedReadAlignment> PairedReadPathAligner::GetAlignmentForPathNoCache(const Path& p) {
-  vector<PairedReadAlignment> ret;
-  string genome = p.ToString(true);
-  ret = paired_read_set_->GetAlignments(genome);
-  return ret;
-}
+  auto it = cache_.find(p);
+  if (it != cache_.end()) {
+    //cout << "cache hit" << endl;
+    return it->second;
+  }
+  vector<PairedReadAlignment> res;
 
-vector<PairedReadAlignment> PairedReadPathAligner::GetAlignmentForPathWithCache(const Path& p) {
-  vector<PairedReadAlignment> ret;
+  auto als1 = left_aligner_.GetAlignmentsForPath(p);
+  //cout << "left als: " << als1.size() << endl;
+  auto als2 = right_aligner_.GetAlignmentsForPath(p);
+  //cout << " right als: " << als2.size() << " " << endl;
+  // assume they are sorted
 
-  // @DEBUG turn-off cahce-lookup
-  const int pos = GetAlignmentPos(p);
-  //const int pos = -1;
-
-  if (pos == -1) {
-    //cerr << "PAIRED ALIGNER: CACHE MISS " << cache_.size() << endl;
-    vector<SingleReadAlignment> als1 = GetPartAlignmentsForPath(p, 0);
-    vector<SingleReadAlignment> als2 = GetPartAlignmentsForPath(p, 1);
-    sort(als1.begin(), als1.end());
-    sort(als2.begin(), als2.end());
-
-    // assuming als1 and als2 are sorted by read position as primary key
-
+  if (!als1.empty() && !als2.empty()) {
     auto it1 = als1.begin();
     auto it2 = als2.begin();
 
-    const auto &reads_1_ = *(left_aligner_.single_short_read_set_);
-    const auto &reads_2_ = *(right_aligner_.single_short_read_set_);
-    const auto reads_1_size = (int)reads_1_.size();
+    while (it1 != als1.end() && it2 != als2.end()) {
+      //cout << "big cycle" << endl;
+      while (it2 != als2.end() && it2->read_id < it1->read_id) it2++;
+      if (it2 == als2.end()) {
+        //cout << "it2 has ended" << endl;
+        break;
+      }
+      else if (it2->read_id == it1->read_id) {
+        int righties_count = 0;
 
-    // run through both vectors, find groups with equal read_id and do cross-check
-    // for potential pairing (with respect to the assumed orientation)
-    vector<SingleReadAlignment> current_als1, current_als2;
-    for (int current_read_id = 0; current_read_id < reads_1_size && it1 != als1.end() && it2 != als2.end(); current_read_id++) {
-      current_als1.clear();
-      current_als2.clear();
-      while (it1 != als1.end() && it1->read_id < current_read_id) it1++;
-      while (it1 != als1.end() && it1->read_id == current_read_id) {
-        current_als1.push_back(*it1);
-        it1++;
-      }
-      while (it2 != als2.end() && it2->read_id < current_read_id) it2++;
-      while (it2 != als2.end() && it2->read_id == current_read_id) {
-        current_als2.push_back(*it2);
-        it2++;
-      }
-      //printf("c12 %d,%d\t", (int)current_als1.size(), (int)current_als2.size());
-      if (!current_als1.empty() && !current_als2.empty()) {
-        // cross check for finding paired alignments
-        string orient;
-        int insert_length;
-        for (auto &a1: current_als1) {
-          for (auto &a2: current_als2) {
-            tie(orient, insert_length) = eval_orientation(a1, (int)reads_1_[current_read_id].size(), a2, (int)reads_2_[current_read_id].size());
-            //ret.push_back(PairedReadAlignment(a1, a2, orient, insert_length));
-            ret.emplace_back(a1, a2, orient, insert_length);
+        const int read_id = it1->read_id;
+
+        while (it2 != als2.end() && it2->read_id == read_id) {
+          righties_count += 1;
+          it2++;
+        }
+        //cout << "righties size: " << righties.size() << endl;
+        while (it1 != als1.end() && it1->read_id == read_id) {
+          it2 -= righties_count;
+          for (int i = 0; i < righties_count; i++) {
+            //cout << "eval orientation" << endl;
+            const pair<string, int> characteristics = eval_orientation(*it1, (int)paired_read_set_->reads_1_[read_id].size(), *it2, (int)paired_read_set_->reads_2_[read_id].size());
+            res.emplace_back(*it1, *it2, characteristics.first, characteristics.second);
+            it2++;
           }
+          it1++;
         }
       }
+      else { //  (it2->read_id > read, (i.e. we didn't hit any good reads)
+        while (it1 != als1.end() && it1->read_id < it2->read_id) it1++;
+      }
     }
-
-    // @DEBUG re-open that stuff
-    InsertAlignmentForPath(p, ret);
   }
-  else {
-    //cerr << "PAIRED ALIGNER: CACHE HIT " << cache_.size() << endl;
-    ret = GetCachedAlignmentByPos(pos);
-  }
-
-  return ret;
+  
+  cache_[p] = res;
+  return res;
 }
+
 
 vector<SingleReadAlignment> PairedReadPathAligner::GetPartAlignmentsForPath(const Path &p, int part) {
   vector<SingleReadAlignment> ret;
@@ -120,40 +102,40 @@ vector<SingleReadAlignment> HICReadPathAligner::GetPartAlignmentsForPath(const P
   return ret;
 }
 double HICReadPathAligner::eval_lambda(const Path &p) {
+  auto it = lambda_cache_.find(p);
+  if (it != lambda_cache_.end()) return it->second;
+
   int total_count = 0;
   double res = 0;
 
-  vector<SingleReadAlignment> lefties, righties;
-  auto als_left = GetPartAlignmentsForPath(p, 0);
-  auto als_right = GetPartAlignmentsForPath(p, 1);
-
-  // assume alignments are sorted
-  auto it_al1 = als_left.begin();
-  auto it_al2 = als_right.begin();
+  const auto als1 = GetPartAlignmentsForPath(p, 0);
+  if (als1.empty()) return 0;
+  const auto als2 = GetPartAlignmentsForPath(p, 1);
+  if (als2.empty()) return 0;
 
   const auto &reads_1_ = *(left_aligner_.single_short_read_set_);
   const auto &reads_2_ = *(right_aligner_.single_short_read_set_);
-  const auto reads_1_size = (int)reads_1_.size();
 
-  for (int read_id = 0; it_al1!=als_left.end() && it_al2!=als_right.end(); read_id++) {
-    while (it_al1 != als_left.end() && it_al1->read_id < read_id) it_al1++;
-    while (it_al2 != als_right.end() && it_al2->read_id < read_id) it_al2++;
-    lefties.clear();
-    righties.clear();
-    while (it_al1 != als_left.end() && it_al1->read_id == read_id) {
-      lefties.push_back(*it_al1);
-      it_al1++;
-    }
-    while (it_al2 != als_right.end() && it_al2->read_id == read_id) {
-      righties.push_back(*it_al2);
-      it_al2++;
-    }
+  auto it1 = als1.begin();
+  auto it2 = als2.begin();
 
-    if (!lefties.empty() && !righties.empty()) {
-      for (auto al1: lefties) {
-        for (auto al2: righties) {
-          pair<string,int> or_ins = eval_orientation(al1, (int)reads_1_[read_id].size(), al2, (int)reads_2_[read_id].size());
-          int insert_length = or_ins.second;
+  while (it1 != als1.end() && it2 != als2.end()) {
+    while (it2 != als2.end() && it2->read_id < it1->read_id) it2++;
+    if (it2 == als2.end()) {
+      break;
+    }
+    else if (it2->read_id == it1->read_id) {
+      int righties_count = 0;
+      const int read_id = it1->read_id;
+      while (it2 != als2.end() && it2->read_id == read_id) {
+        righties_count += 1;
+        it2++;
+      }
+      while (it1 != als1.end() && it1->read_id == read_id) {
+        it2 -= righties_count;
+        for (int i = 0; i < righties_count; i++) {
+          const pair<string,int> or_ins = eval_orientation(*it1, (int)reads_1_[read_id].size(), *it2, (int)reads_2_[read_id].size());
+          const int insert_length = or_ins.second;
           if (total_count == 0) {
             total_count = 1;
             res = insert_length;
@@ -163,10 +145,15 @@ double HICReadPathAligner::eval_lambda(const Path &p) {
             total_count += 1;
             res /= total_count;
           }
-
+          it2++;
         }
+        it1++;
       }
     }
+    else { //  (it2->read_id > read, (i.e. we didn't hit any good reads)
+      while (it1 != als1.end() && it1->read_id < it2->read_id) it1++;
+    }
   }
+  lambda_cache_[p] = res;
   return res;
 }

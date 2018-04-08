@@ -84,6 +84,13 @@ class SingleReadProbabilityCalculator {
   // Evals change with filled added and removed paths
   void EvalProbabilityChange(SingleProbabilityChange& prob_change);
 
+  void RemovePathFromCache(const Path& p) {
+    path_aligner_.RemovePathFromCache(p);
+  }
+  void RemovePathsFromCache(const vector<Path>& paths) {
+    path_aligner_.RemovePathsFromCache(paths);
+  }
+
  private:
   double InitTotalLogProb();
 
@@ -159,6 +166,12 @@ class PairedReadProbabilityCalculator {
   double std_distance_;
 
   int GetPathsLength(const vector<Path>& paths) const;
+  void RemovePathFromCache(const Path& p) {
+    path_aligner_.RemovePathFromCache(p);
+  }
+  void RemovePathsFromCache(const vector<Path>& paths) {
+    path_aligner_.RemovePathsFromCache(paths);
+  }
  private:
 
   // Evals change with filled added and removed paths
@@ -239,6 +252,12 @@ class HICReadProbabilityCalculator {
   double EvalTotalProbabilityFromChange(const HICProbabilityChange &prob_change,
                                         bool write=false);
   int GetPathsLength(const vector<Path>& paths) const;
+  void RemovePathFromCache(const Path& p) {
+    path_aligner_.RemovePathFromCache(p);
+  }
+  void RemovePathsFromCache(const vector<Path>& paths) {
+    path_aligner_.RemovePathsFromCache(paths);
+  }
  private:
 
   double InitTotalLogProb();
@@ -288,6 +307,30 @@ class GlobalProbabilityCalculator {
   void CommitProbabilityChanges(const ProbabilityChanges &prob_changes);
 
   double GetAprioriPathsLogProbability(const vector<Path>& paths);
+
+  void RemovePathFromCache(const Path& p) {
+    for (auto &calc: single_read_calculators_) {
+      calc.first.RemovePathFromCache(p);
+    }
+    for (auto &calc: paired_read_calculators_) {
+      calc.first.RemovePathFromCache(p);
+    }
+    for (auto &calc: hic_read_calculators_) {
+      calc.first.RemovePathFromCache(p);
+    }
+  }
+
+  void RemovePathsFromCache(const vector<Path>& paths) {
+    for (auto &calc: single_read_calculators_) {
+      calc.first.RemovePathsFromCache(paths);
+    }
+    for (auto &calc: paired_read_calculators_) {
+      calc.first.RemovePathsFromCache(paths);
+    }
+    for (auto &calc: hic_read_calculators_) {
+      calc.first.RemovePathsFromCache(paths);
+    }
+  }
 
   vector<SingleShortReadSet<>*> single_short_read_sets_;
   vector<ShortPairedReadSet<>*> paired_read_sets_;

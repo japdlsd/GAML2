@@ -2,20 +2,25 @@
 #define PATH_H__
 
 #include "node.h"
+#include "graph.h"
 
-static const string PATH_BIGNODE = "I";
-static const string PATH_EXTEND_RANDOMLY = "E";
-static const string PATH_BREAK = "B";
-static const string PATH_JOIN = "J";
-static const string PATH_BETTER = "+";
-static const string PATH_UNTANGLE = "U";
-static const string PATH_REVERSE = "R";
+const string PATH_BIGNODE = "I";
+const string PATH_EXTEND_RANDOMLY = "E";
+const string PATH_BREAK = "B";
+const string PATH_JOIN = "J";
+const string PATH_BETTER = "+";
+const string PATH_UNTANGLE = "U";
+const string PATH_REVERSE = "R";
 
 class Path {
  public:
   Path() {}
-  explicit Path(const vector<Node*> nodes) : nodes_(nodes) {}
-  explicit Path(const vector<Node*> nodes, const string history) : nodes_(nodes), history_(history) {}
+  explicit Path(const vector<Node*> nodes) : nodes_(nodes) {
+    RecomputeLength();
+  }
+  explicit Path(const vector<Node*> nodes, const string history) : nodes_(nodes), history_(history) {
+    RecomputeLength();
+  }
   vector<Node*> nodes_;
   // for debug purposes
   string history_;
@@ -27,6 +32,8 @@ class Path {
   Path& operator=(const Path& other) {
     nodes_ = other.nodes_;
     history_ = other.history_;
+    length_ = other.length_;
+    return *this;
   }
 
   size_t size() const {
@@ -66,7 +73,32 @@ class Path {
 
   // Split path into <0, pos) and <pos, ...) and removes small nodes from ends
   Path CutAt(int pos, int big_node_threshold);
+
+  unsigned long GetLength() const{
+    return length_;
+  }
+
+  void RecomputeLength() {
+    if (nodes_.empty()) {
+      length_ = 0;
+    }
+    else{
+      length_ = ToString(false).size() + nodes_[0]->graph_->k_ - 1;
+    }
+  }
+ private:
+  unsigned long length_=0;
 };
+
+namespace std{
+  template <>
+  struct hash<Path> {
+    size_t operator()(const Path& p) const {
+      if (p.nodes_.empty()) return 0;
+      return (size_t)p.nodes_[0]->id_ + 1;
+    }
+  };
+}
 
 vector<Path> BuildPathsFromSingleNodes(const vector<Node*>& nodes);
 

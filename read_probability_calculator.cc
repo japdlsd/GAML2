@@ -110,7 +110,8 @@ void SingleReadProbabilityCalculator::CommitProbabilityChange(
     const SingleProbabilityChange &prob_change) {
   EvalTotalProbabilityFromChange(prob_change, true);
   old_paths_ = prob_change.new_paths;
-  old_paths_length_ = prob_change.new_paths_length; 
+  old_paths_length_ = prob_change.new_paths_length;
+  path_aligner_.RemovePathsFromCache(prob_change.removed_paths);
 }
 
 double SingleReadProbabilityCalculator::InitTotalLogProb() {
@@ -134,7 +135,7 @@ double SingleReadProbabilityCalculator::GetRealReadProbability(double prob, int 
 int SingleReadProbabilityCalculator::GetPathsLength(const vector<Path>& paths) const {
   int ret = 0;
   for (auto &p: paths) {
-    ret += p.ToString(true).size();
+    ret += p.GetLength();
   }
   return ret;
 }
@@ -153,6 +154,7 @@ void PairedReadProbabilityCalculator::CommitProbabilityChange(const PairedProbab
   old_paths_ = prob_change.new_paths;
   old_paths_length_ = prob_change.new_paths_length;
 
+  path_aligner_.RemovePathsFromCache(prob_change.removed_paths);
 }
 double PairedReadProbabilityCalculator::GetPathsProbability(const vector<Path> &paths,
                                                             PairedProbabilityChange &prob_change) {
@@ -167,7 +169,7 @@ double PairedReadProbabilityCalculator::GetPathsProbability(const vector<Path> &
 
   EvalProbabilityChange(prob_change);
 
-  return EvalTotalProbabilityFromChange(prob_change);
+  return EvalTotalProbabilityFromChange(prob_change, false);
 }
 void PairedReadProbabilityCalculator::EvalProbabilityChange(PairedProbabilityChange &prob_change, bool debug_output) {
   for (size_t i = 0; i < prob_change.added_paths.size(); i++) {
@@ -252,7 +254,7 @@ int PairedReadProbabilityCalculator::GetPathsLength(const vector<Path> &paths) c
   // @TODO refactor later
   int ret = 0;
   for (auto &p: paths) {
-    ret += p.ToString(true).size();
+    ret += p.GetLength();
   }
   return ret;
 }
@@ -401,7 +403,7 @@ void GlobalProbabilityCalculator::CommitProbabilityChanges(
 double GlobalProbabilityCalculator::GetAprioriPathsLogProbability(const vector<Path> &paths) {
   int prob = 0;
   for (auto &p: paths) {
-    const auto length = (long long)p.ToString(true).size();
+    const auto length = (long long)p.GetLength();
     prob += length;
   }
   return -prob * log(4);
@@ -444,7 +446,7 @@ int HICReadProbabilityCalculator::GetPathsLength(const vector<Path> &paths) cons
   // @TODO refactor later
   int ret = 0;
   for (auto &p: paths) {
-    ret += p.ToString(true).size();
+    ret += p.GetLength();
   }
   return ret;
 }
@@ -452,6 +454,7 @@ void HICReadProbabilityCalculator::CommitProbabilityChange(const HICProbabilityC
   EvalTotalProbabilityFromChange(prob_change, true);
   old_paths_ = prob_change.new_paths;
   old_paths_length_ = prob_change.new_paths_length;
+  path_aligner_.RemovePathsFromCache(prob_change.removed_paths);
 }
 void HICReadProbabilityCalculator::EvalProbabilityChange(HICProbabilityChange &prob_change, bool debug_output) {
   // @TODO implement
@@ -478,337 +481,190 @@ double HICReadProbabilityCalculator::GetTransScore (const SingleReadAlignment al
 
 double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICProbabilityChange &prob_change,
                                                                     bool write) {
-  // cis part
-  // revoke old lambda from aligner
-  // remove old phis using old lambda
-
-  vector<double> new_cis_phis(read_cis_phis_);
-  vector<SingleReadAlignment> lefties, righties;
-  //vector<SingleReadAlignment> als_left, als_right;
+  double new_total_prob = 0;
   int counter = 0;
-  for (auto &p: prob_change.removed_paths) {
-    const double old_lambda = path_aligner_.eval_lambda(p);
-    const auto &als_left = path_aligner_.GetPartAlignmentsForPath(p, 0);
-    const auto &als_right = path_aligner_.GetPartAlignmentsForPath(p, 1);
+  // -------- CIS CONNECTIONS ------------------
+  vector<double> new_cis_phis(read_cis_phis_);
+  vector<tuple<vector<Path>, int>> params_cis;
+  params_cis.emplace_back(prob_change.added_paths, +1);
+  params_cis.emplace_back(prob_change.removed_paths, -1);
+  for (const auto &param: params_cis) {
+    counter = 0;
+    const vector<Path>& paths = get<0>(param);
+    const double sygn = get<1>(param);
+    vector<SingleReadAlignment> als1, als2;
+    for (const auto &p: paths) {
+      const double lambda = path_aligner_.eval_lambda(p);
+      if (lambda == 0) continue;
 
-    // assume alignments are sorted
-    auto it_al1 = als_left.begin();
-    auto it_al2 = als_right.begin();
+      als1 = path_aligner_.GetPartAlignmentsForPath(p, 0);
+      if (als1.empty()) continue;
+      als2 = path_aligner_.GetPartAlignmentsForPath(p, 1);
+      if (als2.empty()) continue;
+      auto it1 = als1.begin();
+      auto it2 = als2.begin();
 
-    for (int read_id = 0; read_id < (int)read_set_->size(); read_id++) {
-      while (it_al1 != als_left.end() && it_al1->read_id < read_id) it_al1++;
-      while (it_al2 != als_right.end() && it_al2->read_id < read_id) it_al2++;
-      lefties.clear();
-      righties.clear();
-      while (it_al1 != als_left.end() && it_al1->read_id == read_id) {
-        lefties.push_back(*it_al1);
-        it_al1++;
-      }
-      while (it_al2 != als_right.end() && it_al2->read_id == read_id) {
-        righties.push_back(*it_al2);
-        it_al2++;
-      }
 
-      if (!lefties.empty() && !righties.empty()) {
-        for (auto al1: lefties) {
-          for (auto al2: righties) {
-            new_cis_phis[read_id] -= GetCisScore(al1, read_set_->reads_1_[read_id].size(), al2, read_set_->reads_2_[read_id].size(), old_lambda);
+      int subcounter = 0;
+      while (it1 != als1.end() && it2 != als2.end()) {
+        while (it2 != als2.end() && it2->read_id < it1->read_id) it2++;
+        if (it2 == als2.end()) {
+          break;
+        }
+        else if (it2->read_id == it1->read_id) {
+          int righties_count = 0;
+          const int read_id = it1->read_id;
+          while (it2 != als2.end() && it2->read_id == read_id) {
+            righties_count += 1;
+            it2++;
+          }
+          while (it1 != als1.end() && it1->read_id == read_id) {
+            it2 -= righties_count;
+            for (int i = 0; i < righties_count; i++) {
+              new_cis_phis[read_id] += sygn * GetCisScore(*it1, (int)read_set_->reads_1_[read_id].size(), *it2, (int)read_set_->reads_2_[read_id].size(), lambda);
+              subcounter++;
+              it2++;
+            }
+            it1++;
           }
         }
+        else { //  (it2->read_id > read, (i.e. we didn't hit any good reads)
+          while (it1 != als1.end() && it1->read_id < it2->read_id) it1++;
+        }
       }
+
+      counter += 1;
+      cout << "cis " << (sygn == 1 ? "added ":"removed ") << counter << " " << subcounter << " aligments" <<  endl;
     }
-    counter += 1;
-    cout << "(removed cis path) done " << counter << " / " << prob_change.removed_paths.size() << endl;
   }
 
-  // eval new lambda by aligner
-  // add new phis using new lambda
-  counter = 0;
-  for (auto &p: prob_change.added_paths) {
-    const double new_lambda = path_aligner_.eval_lambda(p);
-    const auto &als_left = path_aligner_.GetPartAlignmentsForPath(p, 0);
-    const auto &als_right = path_aligner_.GetPartAlignmentsForPath(p, 1);
 
-    // assume alignments are sorted
-    auto it_al1 = als_left.begin();
-    auto it_al2 = als_right.begin();
-    //vector<SingleReadAlignment> lefties, righties; // we'll just use old ones
-    for (int read_id = 0; read_id < (int)read_set_->size(); read_id++) {
-      while (it_al1 != als_left.end() && it_al1->read_id < read_id) it_al1++;
-      while (it_al2 != als_right.end() && it_al2->read_id < read_id) it_al2++;
-      lefties.clear();
-      righties.clear();
-      while (it_al1 != als_left.end() && it_al1->read_id == read_id) {
-        lefties.push_back(*it_al1);
-        it_al1++;
-      }
-      while (it_al2 != als_right.end() && it_al2->read_id == read_id) {
-        righties.push_back(*it_al2);
-        it_al2++;
-      }
+  //---------- TRANS CONNECTIONS ---------------
+  vector<double> new_trans_psis(read_trans_psis_);
 
-      if (!lefties.empty() && !righties.empty()) {
-        for (auto al1: lefties) {
-          for (auto al2: righties) {
-            new_cis_phis[read_id] += GetCisScore(al1, read_set_->reads_1_[read_id].size(), al2, read_set_->reads_2_[read_id].size(), new_lambda);
+  //       (((((( INNER TRANS )))))))))))
+  vector<tuple<vector<Path>, int>> params_trans_inner;
+  params_trans_inner.emplace_back(prob_change.added_paths, +1);
+  params_trans_inner.emplace_back(prob_change.removed_paths, -1);
+
+  for (auto &param: params_trans_inner) {
+    const auto &paths = get<0>(param);
+    const int sygn = get<1>(param);
+    vector<SingleReadAlignment> als1, als2;
+    counter = 0;
+    for (int i = 0; i < (int)paths.size(); i++) {
+      als1 = path_aligner_.GetPartAlignmentsForPath(paths[i], 0);
+      if (als1.empty()) {
+        counter += (int)paths.size() - 1;
+        continue;
+      }
+      for (int j = 0; j < (int)paths.size(); j++) {
+        if (i == j) continue; // only for different paths
+        als2 = path_aligner_.GetPartAlignmentsForPath(paths[j], 1);
+        if (als2.empty()) {
+          counter++;
+          continue;
+        }
+
+        auto it1 = als1.begin();
+        auto it2 = als2.begin();
+
+        while (it1 != als1.end() && it2 != als2.end()) {
+          while (it2 != als2.end() && it2->read_id < it1->read_id) it2++;
+          if (it2 == als2.end()) {
+            break;
+          } else if (it2->read_id == it1->read_id) {
+            int righties_count = 0;
+            const int read_id = it1->read_id;
+            while (it2 != als2.end() && it2->read_id == read_id) {
+              righties_count += 1;
+              it2++;
+            }
+            while (it1 != als1.end() && it1->read_id == read_id) {
+              it2 -= righties_count;
+              for (int k = 0; k < righties_count; k++) {
+                new_trans_psis[read_id] += sygn * GetTransScore(*it1, *it2);
+                it2++;
+              }
+              it1++;
+            }
+          } else { //  (it2->read_id > read, (i.e. we didn't hit any good reads)
+            while (it1 != als1.end() && it1->read_id < it2->read_id) it1++;
           }
         }
+
+        counter++;
+        if (counter % 1000 == 0) cout << "\rtrans inner " << (sygn == 1 ? "added ":"removed ") << counter << " / " << paths.size() * ((int)paths.size() - 1);
       }
     }
-    counter += 1;
-    if (counter % 100 == 0) cout << "(added cis paths) done: " << counter << "/" << prob_change.added_paths.size() << endl;
+    cout << "\rtrans inner " << (sygn == 1 ? "added ":"removed ") << counter << " / " << paths.size() * ((int)paths.size() - 1) << endl;
+  }
+
+  //       ((((((( OUTER TRANS ))))))))))
+  vector<tuple<vector<Path>, vector<Path>, int>> params_trans_outer;
+  params_trans_outer.emplace_back(prob_change.still_paths, prob_change.removed_paths, -1);
+  params_trans_outer.emplace_back( prob_change.removed_paths, prob_change.still_paths, -1);
+  params_trans_outer.emplace_back(prob_change.still_paths, prob_change.added_paths, +1);
+  params_trans_outer.emplace_back( prob_change.added_paths, prob_change.still_paths, +1);
+
+  for (const auto &param: params_trans_outer) {
+    const vector<Path> &paths1 = get<0>(param);
+    const vector<Path> &paths2 = get<1>(param);
+    if (paths1.empty() || paths2.empty()) continue;
+    const int sygn = get<2>(param);
+
+    counter = 0;
+    vector<SingleReadAlignment> als1, als2;
+
+    for (const auto &p1: paths1) {
+      als1 = path_aligner_.GetPartAlignmentsForPath(p1, 0);
+      if (als1.empty()) {
+        counter += paths2.size();
+        continue;
+      }
+      for (const auto &p2: paths2) {
+        als2 = path_aligner_.GetPartAlignmentsForPath(p2, 1);
+        if (als2.empty()) {
+          counter++;
+          continue;
+        }
+        auto it1 = als1.begin();
+        auto it2 = als2.begin();
+
+        while (it1 != als1.end() && it2 != als2.end()) {
+          while (it2 != als2.end() && it2->read_id < it1->read_id) it2++;
+          if (it2 == als2.end()) {
+            break;
+          } else if (it2->read_id == it1->read_id) {
+            int righties_count = 0;
+            const int read_id = it1->read_id;
+            while (it2 != als2.end() && it2->read_id == read_id) {
+              righties_count += 1;
+              it2++;
+            }
+            while (it1 != als1.end() && it1->read_id == read_id) {
+              it2 -= righties_count;
+              for (int k = 0; k < righties_count; k++) {
+                new_trans_psis[read_id] += sygn * GetTransScore(*it1, *it2);
+                it2++;
+              }
+              it1++;
+            }
+          } else { //  (it2->read_id > read, (i.e. we didn't hit any good reads)
+            while (it1 != als1.end() && it1->read_id < it2->read_id) it1++;
+          }
+        }
+
+        counter++;
+        if (counter % 1000 == 0) cout << "\rtrans outer " << (sygn == 1 ? "added ":"removed ") << counter << " / " << paths1.size() * paths2.size();
+      }
+    }
+    cout << "\rtrans outer " << (sygn == 1 ? "added ":"removed ") << counter << " / " << paths1.size() * paths2.size() << endl;
   }
 
   // eval new cis weighting constant
   double new_cis_constant_ = (1.00 - translocation_prob_) / prob_change.new_paths_length;
-
-  // trans part
-  vector<double> new_trans_psis(read_trans_psis_);
-  // remove old stuff
-  // \Psi(r, R)
-  counter = 0;
-  for (int i = 0; i < (int)prob_change.removed_paths.size(); i++) {
-    for (int j = 0; j < (int)prob_change.removed_paths.size(); j++) {
-      if (i == j) continue; // only different paths
-      auto &pl = prob_change.removed_paths[i];
-      auto &pr = prob_change.removed_paths[j];
-
-      const auto &als_left = path_aligner_.GetPartAlignmentsForPath(pl, 0);
-      const auto &als_right = path_aligner_.GetPartAlignmentsForPath(pr, 1);
-
-      // assume alignments are sorted
-      auto it_al1 = als_left.begin();
-      auto it_al2 = als_right.begin();
-      //vector<SingleReadAlignment> lefties, righties; // we'll just use old ones
-      for (int read_id = 0; read_id < (int)read_set_->size(); read_id++) {
-        while (it_al1 != als_left.end() && it_al1->read_id < read_id) it_al1++;
-        while (it_al2 != als_right.end() && it_al2->read_id < read_id) it_al2++;
-        lefties.clear();
-        righties.clear();
-        while (it_al1 != als_left.end() && it_al1->read_id == read_id) {
-          lefties.push_back(*it_al1);
-          it_al1++;
-        }
-        while (it_al2 != als_right.end() && it_al2->read_id == read_id) {
-          righties.push_back(*it_al2);
-          it_al2++;
-        }
-
-        if (!lefties.empty() && !righties.empty()) {
-          for (auto al1: lefties) {
-            for (auto al2: righties) {
-              new_trans_psis[read_id] -= GetTransScore(al1, al2);
-            }
-          }
-        }
-      }
-      counter += 1;
-      if (counter % 100 == 0) cout << "(removed trans paths) done: " << counter << " / " << prob_change.removed_paths.size() * (prob_change.removed_paths.size() -1) << endl;
-    }
-  }
-  // psi(s_r, s_k)
-  for (int i = 0; i < (int)prob_change.removed_paths.size(); i++) {
-    for (int j = 0; j < (int)prob_change.still_paths.size(); j++) {
-      auto &pl = prob_change.removed_paths[i];
-      auto &pr = prob_change.still_paths[j];
-
-      const auto &als_left = path_aligner_.GetPartAlignmentsForPath(pl, 0);
-      const auto &als_right = path_aligner_.GetPartAlignmentsForPath(pr, 1);
-
-      // assume alignments are sorted
-      auto it_al1 = als_left.begin();
-      auto it_al2 = als_right.begin();
-      //vector<SingleReadAlignment> lefties, righties; // we'll just use old ones
-      for (int read_id = 0; read_id < (int)read_set_->size(); read_id++) {
-        while (it_al1 != als_left.end() && it_al1->read_id < read_id) it_al1++;
-        while (it_al2 != als_right.end() && it_al2->read_id < read_id) it_al2++;
-        lefties.clear();
-        righties.clear();
-        while (it_al1 != als_left.end() && it_al1->read_id == read_id) {
-          lefties.push_back(*it_al1);
-          it_al1++;
-        }
-        while (it_al2 != als_right.end() && it_al2->read_id == read_id) {
-          righties.push_back(*it_al2);
-          it_al2++;
-        }
-
-        if (!lefties.empty() && !righties.empty()) {
-          for (auto al1: lefties) {
-            for (auto al2: righties) {
-              new_trans_psis[read_id] -= GetTransScore(al1, al2);
-            }
-          }
-        }
-      }
-      counter += 1;
-      if (counter % 100 == 0) cout << "(removed trans R-K paths) done: " << counter << " / " << prob_change.removed_paths.size() * (prob_change.still_paths.size()) << endl;
-    }
-  }
-  // psi(s_k, s_s)
-  counter = 0;
-  for (int i = 0; i < (int)prob_change.still_paths.size(); i++) {
-    for (int j = 0; j < (int)prob_change.removed_paths.size(); j++) {
-      auto &pl = prob_change.still_paths[i];
-      auto &pr = prob_change.removed_paths[j];
-
-      const auto &als_left = path_aligner_.GetPartAlignmentsForPath(pl, 0);
-      const auto &als_right = path_aligner_.GetPartAlignmentsForPath(pr, 1);
-
-      // assume alignments are sorted
-      auto it_al1 = als_left.begin();
-      auto it_al2 = als_right.begin();
-      //vector<SingleReadAlignment> lefties, righties; // we'll just use old ones
-      for (int read_id = 0; read_id < (int)read_set_->size(); read_id++) {
-        while (it_al1 != als_left.end() && it_al1->read_id < read_id) it_al1++;
-        while (it_al2 != als_right.end() && it_al2->read_id < read_id) it_al2++;
-        lefties.clear();
-        righties.clear();
-        while (it_al1 != als_left.end() && it_al1->read_id == read_id) {
-          lefties.push_back(*it_al1);
-          it_al1++;
-        }
-        while (it_al2 != als_right.end() && it_al2->read_id == read_id) {
-          righties.push_back(*it_al2);
-          it_al2++;
-        }
-
-        if (!lefties.empty() && !righties.empty()) {
-          for (auto al1: lefties) {
-            for (auto al2: righties) {
-              new_trans_psis[read_id] -= GetTransScore(al1, al2);
-            }
-          }
-        }
-      }
-      counter += 1;
-      if (counter % 100 == 0) cout << "(removed trans K-R paths) done: " << counter << " / " << prob_change.removed_paths.size() * (prob_change.still_paths.size()) << endl;
-    }
-  }
-
-  // add new stuff
-  // Psi(A)
-  counter = 0;
-  for (int i = 0; i < (int)prob_change.added_paths.size(); i++) {
-    for (int j = 0; j < (int)prob_change.added_paths.size(); j++) {
-      if (i == j) continue; // only different paths
-      auto &pl = prob_change.added_paths[i];
-      auto &pr = prob_change.added_paths[j];
-
-      const auto &als_left = path_aligner_.GetPartAlignmentsForPath(pl, 0);
-      const auto &als_right = path_aligner_.GetPartAlignmentsForPath(pr, 1);
-
-      // assume alignments are sorted
-      auto it_al1 = als_left.begin();
-      auto it_al2 = als_right.begin();
-      //vector<SingleReadAlignment> lefties, righties; // we'll just use old ones
-      for (int read_id = 0; read_id < (int)read_set_->size(); read_id++) {
-        while (it_al1 != als_left.end() && it_al1->read_id < read_id) it_al1++;
-        while (it_al2 != als_right.end() && it_al2->read_id < read_id) it_al2++;
-        lefties.clear();
-        righties.clear();
-        while (it_al1 != als_left.end() && it_al1->read_id == read_id) {
-          lefties.push_back(*it_al1);
-          it_al1++;
-        }
-        while (it_al2 != als_right.end() && it_al2->read_id == read_id) {
-          righties.push_back(*it_al2);
-          it_al2++;
-        }
-
-        if (!lefties.empty() && !righties.empty()) {
-          for (auto al1: lefties) {
-            for (auto al2: righties) {
-              new_trans_psis[read_id] += GetTransScore(al1, al2);
-            }
-          }
-        }
-      }
-      counter += 1;
-      if (counter % 100 == 0) cout << "(added trans paths) done: " << counter << " / " << prob_change.added_paths.size() * (prob_change.added_paths.size() -1) << endl;
-    }
-  }
-
-  // psi(s_a, s_k)
-  counter = 0;
-  for (int i = 0; i < (int)prob_change.added_paths.size(); i++) {
-    for (int j = 0; j < (int)prob_change.still_paths.size(); j++) {
-      auto &pl = prob_change.added_paths[i];
-      auto &pr = prob_change.still_paths[j];
-
-      const auto &als_left = path_aligner_.GetPartAlignmentsForPath(pl, 0);
-      const auto &als_right = path_aligner_.GetPartAlignmentsForPath(pr, 1);
-
-      // assume alignments are sorted
-      auto it_al1 = als_left.begin();
-      auto it_al2 = als_right.begin();
-      //vector<SingleReadAlignment> lefties, righties; // we'll just use old ones
-      for (int read_id = 0; read_id < (int)read_set_->size(); read_id++) {
-        while (it_al1 != als_left.end() && it_al1->read_id < read_id) it_al1++;
-        while (it_al2 != als_right.end() && it_al2->read_id < read_id) it_al2++;
-        lefties.clear();
-        righties.clear();
-        while (it_al1 != als_left.end() && it_al1->read_id == read_id) {
-          lefties.push_back(*it_al1);
-          it_al1++;
-        }
-        while (it_al2 != als_right.end() && it_al2->read_id == read_id) {
-          righties.push_back(*it_al2);
-          it_al2++;
-        }
-
-        if (!lefties.empty() && !righties.empty()) {
-          for (auto al1: lefties) {
-            for (auto al2: righties) {
-              new_trans_psis[read_id] += GetTransScore(al1, al2);
-            }
-          }
-        }
-      }
-      counter += 1;
-      if (counter % 100 == 0) cout << "(added trans A-K paths) done: " << counter << " / " << prob_change.added_paths.size() * (prob_change.still_paths.size()) << endl;
-    }
-  }
-  // psi(s_a, s_s)
-  counter = 0;
-  for (int i = 0; i < (int)prob_change.still_paths.size(); i++) {
-    for (int j = 0; j < (int)prob_change.added_paths.size(); j++) {
-      auto &pl = prob_change.still_paths[i];
-      auto &pr = prob_change.added_paths[j];
-
-      const auto &als_left = path_aligner_.GetPartAlignmentsForPath(pl, 0);
-      const auto &als_right = path_aligner_.GetPartAlignmentsForPath(pr, 1);
-
-      // assume alignments are sorted
-      auto it_al1 = als_left.begin();
-      auto it_al2 = als_right.begin();
-      //vector<SingleReadAlignment> lefties, righties; // we'll just use old ones
-      for (int read_id = 0; read_id < (int)read_set_->size(); read_id++) {
-        while (it_al1 != als_left.end() && it_al1->read_id < read_id) it_al1++;
-        while (it_al2 != als_right.end() && it_al2->read_id < read_id) it_al2++;
-        lefties.clear();
-        righties.clear();
-        while (it_al1 != als_left.end() && it_al1->read_id == read_id) {
-          lefties.push_back(*it_al1);
-          it_al1++;
-        }
-        while (it_al2 != als_right.end() && it_al2->read_id == read_id) {
-          righties.push_back(*it_al2);
-          it_al2++;
-        }
-
-        if (!lefties.empty() && !righties.empty()) {
-          for (auto al1: lefties) {
-            for (auto al2: righties) {
-              new_trans_psis[read_id] += GetTransScore(al1, al2);
-            }
-          }
-        }
-      }
-      counter += 1;
-      if (counter % 100 == 0) cout << "(added trans K-A paths) done: " << counter << " / " << prob_change.added_paths.size() * (prob_change.still_paths.size()) << endl;
-    }
-  }
+  cout << "New cis constant " << new_cis_constant_ << endl;
 
   // eval new trans_constant
   double new_trans_constant = 0;
@@ -816,19 +672,23 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
   multis.reserve(prob_change.new_paths.size() * (prob_change.new_paths.size() - 1) / 2);
   for (int i = 0; i < (int)prob_change.new_paths.size() - 1; i++) {
     for (int j = i+1; j < (int)prob_change.new_paths.size(); j++) {
-      multis.push_back(1.00 * prob_change.new_paths[i].ToString(true).size() * prob_change.new_paths[j].ToString(true).size());
+      multis.push_back(1.00 * prob_change.new_paths[i].GetLength() * prob_change.new_paths[j].GetLength());
     }
   }
   sort(multis.begin(), multis.end());
   for (auto x: multis) new_trans_constant += x;
   new_trans_constant = translocation_prob_ / new_trans_constant;
 
-  double new_total_prob = 0;
+  cout << "New trans constant " << new_trans_constant << endl;
 
+  counter = 0;
   for (int i = 0; i < (int)read_set_->size(); i++) {
     const double read_prob = new_cis_constant_ * new_cis_phis[i] + new_trans_constant * new_trans_psis[i];
     new_total_prob += GetRealReadProbability(read_prob, i);
+    counter += 1;
+    if (counter % 1000 == 0) cout << "\rEvaled total prob for " << counter << " reads";
   }
+  cout << "\rEvaled total prob for " << counter << " reads" << endl;
 
   if (write) {
     read_cis_phis_ = new_cis_phis;
