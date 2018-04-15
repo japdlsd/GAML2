@@ -86,6 +86,14 @@ double SingleReadProbabilityCalculator::EvalTotalProbabilityFromChange(
   return new_prob;
 }
 
+
+
+double pdf_normal(const double x, const double mean, const double stde) {
+  const double inv_sqrt_2pi = 0.3989422804014327;
+  const double a = (mean - x)/stde;
+  return inv_sqrt_2pi / stde * exp(-0.5 * a * a);
+}
+
 inline double SimpleReadProbModel (int dist, int read_length, double mismatch_prob) {
   // @DONE corrected epsilon for e/3 (error from the GAML article)
   return pow(mismatch_prob/3, dist) * pow(1 - mismatch_prob, read_length - dist);
@@ -188,6 +196,17 @@ void PairedReadProbabilityCalculator::EvalProbabilityChange(PairedProbabilityCha
     prob_change.added_alignments.insert(prob_change.added_alignments.end(), als.begin(), als.end());
     if (debug_output) printf("\n(added_paths) done %d/%d evals; %d alignments", (int) i+1, (int) prob_change.added_paths.size(), (int) als.size());
     if (debug_output) fflush(stdout);
+    // @DEBUG
+    for (auto &al: als) {
+      if (GetAlignmentProb(al) == 0) {
+        for (auto &a: {al.al1, al.al2}) {
+          cerr << "(" << a.matches << "," << a.substs << "," << a.inserts << "," << a.dels << "|"<< BetterReadProbModel(a.matches,a.inserts, a.dels, a.substs, insert_prob_, del_prob_, subst_prob_)<< ") ";
+        }
+        cerr << "orient: " << al.orientation << " ";
+        cerr << " len:" << al.insert_length << "|" << pdf_normal(al.insert_length, mean_distance_, std_distance_) << endl;
+
+      }
+    }
   }
   if (debug_output) printf("\n");
   for (size_t i = 0; i < prob_change.removed_paths.size(); i++) {
@@ -275,13 +294,14 @@ int PairedReadProbabilityCalculator::GetPathsLength(const vector<Path> &paths) c
   return ret;
 }
 
-double pdf_normal(const double x, const double mean, const double stde) {
-  const double inv_sqrt_2pi = 0.3989422804014327;
-  const double a = (mean - x)/stde;
-  return inv_sqrt_2pi / stde * exp(-0.5 * a * a);
-}
 
 bool is_same_orientation (const string& o1, const string& o2) {
+  // @DEBUG
+  return (o2 != "");
+
+  // old version
+
+
   if (o1 == o2) {
     return true;
   }

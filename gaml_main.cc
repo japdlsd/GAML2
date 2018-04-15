@@ -120,7 +120,7 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
     }
 
     {
-      iter_log << it_num <<"," << old_prob << "," << total_size <<  ", \'" << move_type << "\'," << T << "," << probability_calculator.GetUnalignedReadsLog() << endl;
+      iter_log << it_num <<"," << old_prob << "," << total_size << ", \'"  << move_type << "\'," << T << "," << probability_calculator.GetUnalignedReadsLog() << endl;
     }
   }
 

@@ -178,6 +178,9 @@ class SingleShortReadSet {
   bool ExtendAlignment(const CandidateReadPosition& candidate, const string& genome,
                        SingleReadAlignment& al) const;
 
+  //bool ExtendAlignmentDejksta(const CandidateReadPosition& candidate, const string& genome,
+  //                     SingleReadAlignment& al) const;
+
   vector<string> reads_;
   TIndex index_;
 

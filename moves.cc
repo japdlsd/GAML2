@@ -134,7 +134,7 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
   // exclude nondisjoint paths
   vector<int> disjoint_path_ids;
   // const auto disjoint_length = (int)(pc.mean_distance_ + pc.std_distance_ * 3);
-  const auto disjoint_length = (int)(pc.mean_distance_ - 100 + pc.std_distance_ * 3);
+  const auto disjoint_length = (int)(pc.mean_distance_ + pc.std_distance_ * 3);
   for (int i = 0; i < (int)paths.size(); i++) {
     //cerr << "checking path[" << i << "] for disjointness with given path" << endl;
     //cerr << paths[i].ToDebugString() << endl;
