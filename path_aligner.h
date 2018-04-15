@@ -219,7 +219,7 @@ class HICReadPathAligner {
   // @TODO implement HIC stuff
  public:
   explicit HICReadPathAligner() {}
-  explicit HICReadPathAligner(HICReadSet<>* hic_read_set): hic_read_set_(hic_read_set) {
+  explicit HICReadPathAligner(HICReadSet<>* hic_read_set, int binsize): hic_read_set_(hic_read_set), binsize_(binsize) {
     left_aligner_ = SingleShortReadPathAligner(&(hic_read_set_->reads_1_));
     right_aligner_ = SingleShortReadPathAligner(&(hic_read_set_->reads_2_));
   }
@@ -245,6 +245,7 @@ class HICReadPathAligner {
   }
 
   HICReadSet<>* hic_read_set_;
+  int binsize_;
 
   SingleShortReadPathAligner left_aligner_, right_aligner_;
  private:

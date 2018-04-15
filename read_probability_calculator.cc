@@ -92,7 +92,10 @@ inline double SimpleReadProbModel (int dist, int read_length, double mismatch_pr
 }
 
 inline double BetterReadProbModel (int matches, int inserts, int dels, int substs, double insert_prob, double del_prob, double subst_prob) {
-  return pow(insert_prob, inserts) * pow(del_prob, dels) * pow(subst_prob, substs) * pow(1 - insert_prob - del_prob - subst_prob, matches);
+  const double res = pow(insert_prob, inserts) * pow(del_prob, dels) * pow(subst_prob, substs) * pow(1 - insert_prob - del_prob - subst_prob, matches);
+  //if (rand() % 1000 == 0) cerr << "PROBMODEL: " << matches << "\t" << inserts << "\t" << dels << "\t" << substs << "\t" << res << endl;
+  return res;
+  //return exp(inserts * log(insert_prob) + dels * log(del_prob) + substs*log(subst_prob) + matches * (1 - insert_prob - del_prob - subst_prob));
 }
 
 double SingleReadProbabilityCalculator::GetAlignmentProbSimple(
@@ -138,6 +141,13 @@ int SingleReadProbabilityCalculator::GetPathsLength(const vector<Path>& paths) c
     ret += p.GetLength();
   }
   return ret;
+}
+int SingleReadProbabilityCalculator::GetUnalignedReadsCount() {
+  int res = 0;
+  for (int i = 0; i < read_set_->size(); i++) {
+    if (log(max(0.0, read_probs_[i])) <= GetMinLogProbability((int)(*read_set_)[i].size())) res += 1;
+  }
+  return res;
 }
 
 double PairedReadProbabilityCalculator::InitTotalLogProb() {
@@ -202,19 +212,25 @@ double PairedReadProbabilityCalculator::GetRealReadProbability(double prob, int 
 double PairedReadProbabilityCalculator::EvalTotalProbabilityFromChange(const PairedProbabilityChange &prob_change,
                                                                        bool write) {
   double new_prob = total_log_prob_;
-  new_prob += log(old_paths_length_);
-  new_prob -= log(prob_change.new_paths_length);
+  //new_prob += log(old_paths_length_);
+  //new_prob -= log(prob_change.new_paths_length);
+
+  // because we are not averageing anymore
+  new_prob += log(2 * old_paths_length_) * read_set_->size();
+  new_prob -= log(2 * prob_change.new_paths_length) * read_set_->size();
 
   // (read_id, prob_change)
   vector< pair<int, double> > changes;
   for (auto &a: prob_change.added_alignments) {
     //changes.push_back(make_pair(a.read_id, GetAlignmentProb(a)));
     changes.emplace_back(a.read_id, GetAlignmentProb(a));
+    if (write) read_als_[a.read_id]++;
   }
 
   for (auto &a: prob_change.removed_alignments) {
     //changes.push_back(make_pair(a.read_id, -GetAlignmentProb(a)));
     changes.emplace_back(a.read_id, -GetAlignmentProb(a));
+    if (write) read_als_[a.read_id]--;
   }
 
   sort(changes.begin(), changes.end());
@@ -259,10 +275,10 @@ int PairedReadProbabilityCalculator::GetPathsLength(const vector<Path> &paths) c
   return ret;
 }
 
-double pdf_normal(const double x, const double mean, const double std) {
-  static const double inv_sqrt_2pi = 0.3989422804014327;
-  const double a = (mean - x)/std;
-  return inv_sqrt_2pi / std * exp(-0.5 * a * a);
+double pdf_normal(const double x, const double mean, const double stde) {
+  const double inv_sqrt_2pi = 0.3989422804014327;
+  const double a = (mean - x)/stde;
+  return inv_sqrt_2pi / stde * exp(-0.5 * a * a);
 }
 
 bool is_same_orientation (const string& o1, const string& o2) {
@@ -270,6 +286,9 @@ bool is_same_orientation (const string& o1, const string& o2) {
     return true;
   }
   else if ((o1 == "FF" || o1 == "RR") && (o2 == "FF" || o2 == "RR") ) {
+    return true;
+  }
+  else if ((o1 == "RF" && o2 == "FR") || (o1 == "FR" && o2 == "RF")) {
     return true;
   }
   else {
@@ -284,7 +303,25 @@ double PairedReadProbabilityCalculator::GetAlignmentProb(const PairedReadAlignme
   //const double pp2 = SimpleReadProbModel(al.al2.dist, (*read_set_)[al.read_id].second.size(), mismatch_prob_);
   const double pp2 = BetterReadProbModel(al.al2.matches, al.al2.inserts, al.al2.dels, al.al2.substs, insert_prob_, del_prob_, subst_prob_);
 
+  //if(rand() % 10000 == 0) cerr << "PAIRED: " << pp1 << "\t" << pp2 << "\t" <<  pdf_normal(al.insert_length, mean_distance_, std_distance_) << endl;
+
   return pp1 * pp2 * pdf_normal(al.insert_length, mean_distance_, std_distance_);
+}
+int PairedReadProbabilityCalculator::GetUnalignedReadsCount() {
+  int res = 0;
+  for (int i = 0; i < read_set_->size(); i++) {
+    if (log(max(0.0, read_probs_[i])) <= GetMinLogProbability((*read_set_)[i].first.size() + (*read_set_)[i].second.size())) res += 1;
+    //if (read_probs_[i] == 0) res++;
+    //if (read_als_[i] == 0) res++;
+  }
+  return res;
+}
+int PairedReadProbabilityCalculator::GetCompletelyUnalignedReadsCount() {
+  int res = 0;
+  for (int i = 0; i < read_set_->size(); i++) {
+    if (read_als_[i] == 0) res++;
+  }
+  return res;
 }
 
 GlobalProbabilityCalculator::GlobalProbabilityCalculator(const Config& config) {
@@ -339,11 +376,11 @@ GlobalProbabilityCalculator::GlobalProbabilityCalculator(const Config& config) {
             hic_reads.del_prob(),
             hic_reads.subst_prob(),
             hic_reads.translocation_prob(),
+            hic_reads.binsize(),
             hic_reads.min_prob_start(),
             hic_reads.min_prob_per_base(),
             hic_reads.penalty_constant(),
             hic_reads.penalty_step(),
-            hic_reads.binsize(),
             hic_reads.use_as_advice()
         ),
         hic_reads.weight()
@@ -354,6 +391,7 @@ GlobalProbabilityCalculator::GlobalProbabilityCalculator(const Config& config) {
 double GlobalProbabilityCalculator::GetPathsProbability(
     const vector<Path>& paths, ProbabilityChanges& prob_changes) {
   double total_prob = 0;
+  long long total_reads_length = 0;
   // @TODO add weighting of datasets based on their lengths
   prob_changes.single_read_changes.clear();
   for (auto &single_read_calculator: single_read_calculators_) {
@@ -361,6 +399,8 @@ double GlobalProbabilityCalculator::GetPathsProbability(
     double prob = single_read_calculator.first.GetPathsProbability(paths, ch);
     total_prob += prob * single_read_calculator.second;
     prob_changes.single_read_changes.push_back(ch);
+
+    total_reads_length += single_read_calculator.first.GetTotalReadsLength();
   }
 
   prob_changes.paired_read_changes.clear();
@@ -369,6 +409,8 @@ double GlobalProbabilityCalculator::GetPathsProbability(
     double prob = paired_read_calculator.first.GetPathsProbability(paths, ch);
     total_prob += prob * paired_read_calculator.second;
     prob_changes.paired_read_changes.push_back(ch);
+
+    total_reads_length += paired_read_calculator.first.GetTotalReadsLength();
   }
 
   prob_changes.hic_read_changes.clear();
@@ -377,9 +419,12 @@ double GlobalProbabilityCalculator::GetPathsProbability(
     double prob = hic_read_calculator.first.GetPathsProbability(paths, ch);
     total_prob += prob * hic_read_calculator.second;
     prob_changes.hic_read_changes.push_back(ch);
+
+    total_reads_length += hic_read_calculator.first.GetTotalReadsLength();
   }
 
   total_prob += GetAprioriPathsLogProbability(paths);
+  total_prob /= total_reads_length;
   return total_prob;
 }
 
@@ -408,8 +453,35 @@ double GlobalProbabilityCalculator::GetAprioriPathsLogProbability(const vector<P
   }
   return -prob * log(4);
 }
+string GlobalProbabilityCalculator::GetUnalignedReadsDebug() {
+  stringstream res;
+  for (auto pc: single_read_calculators_) {
+    //res << "S:" << pc.first.GetUnalignedReadsCount() << "(" << pc.first.GetCompletelyUnalignedReadsCount() << ")/" << pc.first.GetReadsCount()<< "|AVG:" << pc.first.GetAvgReadProb() << ", ";
+  }
+  for (auto pc: paired_read_calculators_) {
+    res << "P:" << pc.first.GetUnalignedReadsCount() << "(" << pc.first.GetCompletelyUnalignedReadsCount() << ")/" << pc.first.GetReadsCount() << "|AVG:" << pc.first.GetAvgReadProb() << ", ";
+  }
+  for (auto pc: hic_read_calculators_) {
+    res << "H:" << pc.first.GetUnalignedReadsCount() << "(" << pc.first.GetCompletelyUnalignedReadsCount() << ")/" << pc.first.GetReadsCount() << "|AVG:" << pc.first.GetAvgReadProb() << ", ";
+  }
 
+  return res.str();
+}
 
+string GlobalProbabilityCalculator::GetUnalignedReadsLog() {
+  stringstream res;
+  for (auto pc: single_read_calculators_) {
+    //res << pc.first.GetUnalignedReadsCount() << ", ";
+  }
+  for (auto pc: paired_read_calculators_) {
+    res << pc.first.GetUnalignedReadsCount()  << ", " << pc.first.GetCompletelyUnalignedReadsCount() << ", ";
+  }
+  for (auto pc: hic_read_calculators_) {
+    res << pc.first.GetUnalignedReadsCount()  << ", " << pc.first.GetCompletelyUnalignedReadsCount() << ", ";
+  }
+
+  return res.str();
+}
 
 double HICReadProbabilityCalculator::InitTotalLogProb() {
   double ret = 0;
@@ -494,6 +566,7 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
     const double sygn = get<1>(param);
     vector<SingleReadAlignment> als1, als2;
     for (const auto &p: paths) {
+      counter += 1;
       const double lambda = path_aligner_.eval_lambda(p);
       if (lambda == 0) continue;
 
@@ -522,6 +595,7 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
             it2 -= righties_count;
             for (int i = 0; i < righties_count; i++) {
               new_cis_phis[read_id] += sygn * GetCisScore(*it1, (int)read_set_->reads_1_[read_id].size(), *it2, (int)read_set_->reads_2_[read_id].size(), lambda);
+              if (write) read_cis_als_[read_id] += sygn;
               subcounter++;
               it2++;
             }
@@ -533,8 +607,7 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
         }
       }
 
-      counter += 1;
-      cout << "cis " << (sygn == 1 ? "added ":"removed ") << counter << " " << subcounter << " aligments" <<  endl;
+      cout << "cis " << (sygn == 1 ? "added ":"removed ") << counter << " " << subcounter << " aligments; lambda: "<< lambda <<  endl;
     }
   }
 
@@ -553,6 +626,7 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
     vector<SingleReadAlignment> als1, als2;
     counter = 0;
     for (int i = 0; i < (int)paths.size(); i++) {
+      counter++;
       als1 = path_aligner_.GetPartAlignmentsForPath(paths[i], 0);
       if (als1.empty()) {
         counter += (int)paths.size() - 1;
@@ -584,6 +658,7 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
               it2 -= righties_count;
               for (int k = 0; k < righties_count; k++) {
                 new_trans_psis[read_id] += sygn * GetTransScore(*it1, *it2);
+                if (write) read_trans_als_[read_id] += sygn;
                 it2++;
               }
               it1++;
@@ -592,8 +667,6 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
             while (it1 != als1.end() && it1->read_id < it2->read_id) it1++;
           }
         }
-
-        counter++;
         if (counter % 1000 == 0) cout << "\rtrans inner " << (sygn == 1 ? "added ":"removed ") << counter << " / " << paths.size() * ((int)paths.size() - 1);
       }
     }
@@ -646,6 +719,7 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
               it2 -= righties_count;
               for (int k = 0; k < righties_count; k++) {
                 new_trans_psis[read_id] += sygn * GetTransScore(*it1, *it2);
+                if (write) read_trans_als_[read_id] += sygn;
                 it2++;
               }
               it1++;
@@ -694,10 +768,28 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
     read_cis_phis_ = new_cis_phis;
     read_trans_psis_ = new_trans_psis;
     total_log_prob_ = new_total_prob;
+    cis_constant_ = new_cis_constant_;
+    trans_constant_ = new_trans_constant;
   }
 
   return new_total_prob;
 }
 double HICReadProbabilityCalculator::GetRealReadProbability(double prob, int read_id) const {
   return max(log(max(0.0, prob)), GetMinLogProbability((*read_set_)[read_id].first.size() + (*read_set_)[read_id].second.size()));
+}
+int HICReadProbabilityCalculator::GetUnalignedReadsCount() {
+  int res = 0;
+  for (int i = 0; i < read_set_->size(); i++) {
+    const double read_prob = cis_constant_ * read_cis_phis_[i] + trans_constant_ * read_trans_psis_[i];
+    if (log(max(0.0, read_prob)) <= GetMinLogProbability((*read_set_)[i].first.size() + (*read_set_)[i].second.size())) res += 1;
+    //if (read_cis_als_[i] + read_trans_als_[i] == 0) res++;
+  }
+  return res;
+}
+int HICReadProbabilityCalculator::GetCompletelyUnalignedReadsCount() {
+  int res = 0;
+  for (int i = 0; i < read_set_->size(); i++) {
+   if (read_cis_als_[i] + read_trans_als_[i] == 0) res++;
+  }
+  return res;
 }

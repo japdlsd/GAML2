@@ -133,7 +133,8 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
 
   // exclude nondisjoint paths
   vector<int> disjoint_path_ids;
-  const auto disjoint_length = (int)(pc.mean_distance_ + pc.std_distance_ * 3);
+  // const auto disjoint_length = (int)(pc.mean_distance_ + pc.std_distance_ * 3);
+  const auto disjoint_length = (int)(pc.mean_distance_ - 100 + pc.std_distance_ * 3);
   for (int i = 0; i < (int)paths.size(); i++) {
     //cerr << "checking path[" << i << "] for disjointness with given path" << endl;
     //cerr << paths[i].ToDebugString() << endl;
@@ -708,7 +709,7 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
   //cerr << "new without changed: ";
   //cerr << PathsToDebugString(new_paths);
   //cerr << "new_paths.size(): " << new_paths.size() << "; paths.size(): " << paths.size() << endl;
-  assert(new_paths.size() + 2 == paths.size());
+  //assert(new_paths.size() + 2 == paths.size()); <- it doesn't have to hold
 
   double best_prob = -100000000;
   int best_k = 0;
@@ -750,7 +751,7 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
     }
   }
 
-  assert(removed_paths_length >= added_paths_length - 2 * (p1[0]->graph_->k_ - 1));
+  //assert(removed_paths_length >= added_paths_length - 2 * (p1[0]->graph_->k_ - 1));
 
   new_paths.resize(paths.size() - 2);
   new_paths.insert(new_paths.end(), added_paths[best_k].begin(), added_paths[best_k].end());

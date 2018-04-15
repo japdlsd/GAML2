@@ -70,6 +70,8 @@ class SingleReadProbabilityCalculator {
         old_paths_length_(1) {
     read_probs_.resize(read_set_->size());
     total_log_prob_ = InitTotalLogProb();
+    total_reads_length_ = 0;
+    for (size_t i = 0; i < read_set_->size(); i++) total_reads_length_ += (*read_set_)[i].size();
   }
 
   // Call this first
@@ -89,6 +91,38 @@ class SingleReadProbabilityCalculator {
   }
   void RemovePathsFromCache(const vector<Path>& paths) {
     path_aligner_.RemovePathsFromCache(paths);
+  }
+
+  long long GetTotalReadsLength() {
+    return total_reads_length_;
+  }
+
+  int GetUnalignedReadsCount();
+
+  int GetReadsCount() {
+    return (int)read_set_->size();
+  }
+
+  string GetProbHist() {
+    stringstream ss;
+    map<int, int> log_bins;
+    for (int i = 0; i < read_probs_.size(); i++) {
+      const double prob = read_probs_[i];
+      const int bin = (int)ceil(log(prob));
+      log_bins[bin] = 1 + log_bins[bin];
+    }
+
+    const int threshold_bin = (int)ceil(log(GetMinLogProbability((*read_set_)[0].size())));
+    for (int i = 0; i >= -1000; i--) {
+      if (i > threshold_bin) {
+        ss << log_bins[i] << "\t";
+      }
+      else {
+        ss << "**" << log_bins[i] << "\t";
+      }
+      if (abs(i) % 10 == 0 ) ss << "||";
+    }
+    return ss.str();
   }
 
  private:
@@ -120,6 +154,8 @@ class SingleReadProbabilityCalculator {
   double penalty_constant_;
   int penalty_step_;
 
+  long long total_reads_length_;
+
   vector<double> read_probs_;
   double total_log_prob_;
   int old_paths_length_;
@@ -150,6 +186,12 @@ class PairedReadProbabilityCalculator {
     read_probs_.resize(read_set_->size());
     total_log_prob_ = InitTotalLogProb();
 
+    read_als_.resize(read_set_->size(), 0);
+
+    total_reads_length_ = 0;
+    for (size_t i = 0; i < read_set_->size(); i++) total_reads_length_ += read_set_->reads_1_[i].size() + read_set_->reads_2_[i].size();
+
+
   }
   // Call this first
   double GetPathsProbability(
@@ -172,6 +214,59 @@ class PairedReadProbabilityCalculator {
   void RemovePathsFromCache(const vector<Path>& paths) {
     path_aligner_.RemovePathsFromCache(paths);
   }
+
+  long long GetTotalReadsLength() {
+    return total_reads_length_;
+  }
+  int GetUnalignedReadsCount();
+
+  double GetAvgReadProb() {
+    double sum = 0;
+    int count = 0;
+    for(int i = 0; i < read_probs_.size(); i++) {
+      if (read_als_[i] > 0) {
+        sum += read_probs_[i];
+        count += 1;
+      }
+    }
+    return sum / (double)count;
+  }
+
+  string GetProbHist() {
+    stringstream ss;
+    map<int, int> log_bins;
+    for (int i = 0; i < read_probs_.size(); i++) {
+      if (read_als_[i] == 0) continue;
+      const double prob = read_probs_[i];
+      if (prob <= 0) log_bins[1] = 1 + log_bins[1];
+      else {
+        const int bin = (int)ceil(log(prob));
+        log_bins[bin] = 1 + log_bins[bin];
+      }
+    }
+
+    const int threshold_bin = (int)ceil(GetMinLogProbability((*read_set_)[0].first.size() +(*read_set_)[0].second.size()));
+
+    for (int i = 1; i >= -1000; i--) {
+      if (i == 1) {
+        ss << "[" << log_bins[1] << "]\t";
+      }
+      else if (i > threshold_bin) {
+        ss << log_bins[i] << "\t";
+      }
+      else {
+        ss << "**" << log_bins[i] << "\t";
+      }
+      if (abs(i) % 10 == 0 ) ss << "||";
+    }
+    return ss.str();
+  }
+
+  int GetReadsCount() {
+    return (int)read_set_->size();
+  }
+
+  int GetCompletelyUnalignedReadsCount();
  private:
 
   // Evals change with filled added and removed paths
@@ -202,8 +297,12 @@ class PairedReadProbabilityCalculator {
   //double mean_distance_;
   //double std_distance_;
 
+  long long total_reads_length_;
+
   vector<double> read_probs_;
   vector<Path> old_paths_;
+
+  vector<int> read_als_;
 
 };
 
@@ -222,7 +321,7 @@ class HICReadProbabilityCalculator {
       double penalty_constant,
       int penalty_step,
       bool use_as_advice
-  ): read_set_(read_set), path_aligner_(read_set), //mismatch_prob_(mismatch_prob),
+  ): read_set_(read_set), path_aligner_(HICReadPathAligner(read_set, binsize)), //mismatch_prob_(mismatch_prob),
      insert_prob_(insert_prob), del_prob_(del_prob), subst_prob_(subst_prob),
      translocation_prob_(translocation_prob),
      min_prob_start_(min_prob_start), min_prob_per_base_(min_prob_per_base),
@@ -233,6 +332,14 @@ class HICReadProbabilityCalculator {
     read_trans_psis_.resize(read_set_->size());
     total_log_prob_ = InitTotalLogProb();
 
+    total_reads_length_ = 0;
+    for (size_t i = 0; i < read_set_->size(); i++) total_reads_length_ += read_set_->reads_1_[i].size() + read_set_->reads_2_[i].size();
+
+    read_cis_als_.resize(read_set_->size(), 0);
+    read_trans_als_.resize(read_set_->size(), 0);
+
+    cis_constant_ = 1;
+    trans_constant_ = 1;
   }
   // Call this first
   double GetPathsProbability(
@@ -258,6 +365,59 @@ class HICReadProbabilityCalculator {
   void RemovePathsFromCache(const vector<Path>& paths) {
     path_aligner_.RemovePathsFromCache(paths);
   }
+
+  long long GetTotalReadsLength() {
+    return total_reads_length_;
+  }
+
+  int GetReadsCount() {
+    return (int)read_set_->size();
+  }
+
+  int GetUnalignedReadsCount();
+  int GetCompletelyUnalignedReadsCount();
+
+  double GetAvgReadProb() {
+    double sum = 0;
+    int count = 0;
+    for(int i = 0; i < read_cis_als_.size(); i++) {
+      if (read_cis_als_[i] + read_trans_als_[i] > 0) {
+        sum += cis_constant_ * read_cis_phis_[i] + trans_constant_ * read_trans_als_[i];
+        count += 1;
+      }
+    }
+    return sum / (double)count;
+  }
+
+  string GetProbHist() {
+    stringstream ss;
+    map<int, int> log_bins;
+    for (int i = 0; i < read_cis_als_.size(); i++) {
+      if (read_cis_als_[i] + read_trans_als_[i] == 0) continue;
+      const double prob = cis_constant_ * read_cis_phis_[i] + trans_constant_ * read_trans_als_[i];
+      if (prob <= 0) log_bins[1] = 1 + log_bins[1];
+      else {
+        const int bin = (int)ceil(log(prob));
+        log_bins[bin] = 1 + log_bins[bin];
+      }
+    }
+
+    const int threshold_bin = (int)ceil(GetMinLogProbability((*read_set_)[0].first.size() +(*read_set_)[0].second.size()));
+    for (int i = 1; i >= -1000; i--) {
+      if (i == 1) {
+        ss << "[" << log_bins[1] << "]\t";
+      }
+      else if (i > threshold_bin) {
+        ss << log_bins[i] << "\t";
+      }
+      else {
+        ss << "**" << log_bins[i] << "\t";
+      }
+      if (abs(i) % 10 == 0 ) ss << "||";
+    }
+    return ss.str();
+  }
+
  private:
 
   double InitTotalLogProb();
@@ -287,10 +447,18 @@ class HICReadProbabilityCalculator {
   double total_log_prob_;
   int binsize_;
 
+  double cis_constant_;
+  double trans_constant_;
+
+  long long total_reads_length_;
+
   //vector<double> read_probs_;
   vector<double> read_cis_phis_;
   vector<double> read_trans_psis_;
   vector<Path> old_paths_;
+
+  vector<int> read_cis_als_;
+  vector<int> read_trans_als_;
 
 };
 
@@ -330,6 +498,23 @@ class GlobalProbabilityCalculator {
     for (auto &calc: hic_read_calculators_) {
       calc.first.RemovePathsFromCache(paths);
     }
+  }
+
+  string GetUnalignedReadsDebug();
+  string GetUnalignedReadsLog();
+
+  string GetProbHists() {
+    stringstream ss;
+    for (auto &calc: single_read_calculators_) {
+      ss << "S: " << calc.first.GetProbHist() << endl;
+    }
+    for (auto &calc: paired_read_calculators_) {
+      ss << "P: " << calc.first.GetProbHist() << endl;
+    }
+    for (auto &calc: hic_read_calculators_) {
+      ss << "H: " << calc.first.GetProbHist() << endl;
+    }
+    return ss.str();
   }
 
   vector<SingleShortReadSet<>*> single_short_read_sets_;

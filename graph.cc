@@ -73,7 +73,6 @@ vector<Node*> Graph::GetBigNodes(int threshold) const {
   return ret;
 }
 
-
 // BFS but ignoring big nodes (based on threshold)?
 // + ignoring reversed complement nodes
 vector<Node*> Graph::ReachForwardWithThreshold(Node* start, int threshold) const {

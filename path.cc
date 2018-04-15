@@ -29,7 +29,7 @@ bool Path::CheckPath() const {
 
 string Path::ToDebugString() const {
   stringstream ret;
-  ret << "(";
+  ret << "(" << length_ << " bp|";
   for (size_t i = 0; i < nodes_.size(); i++) {
     ret << nodes_[i]->id_;
     if (i + 1 != nodes_.size()) {

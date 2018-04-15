@@ -1,4 +1,5 @@
 #include "path_aligner.h"
+#include <map>
 
 vector<SingleReadAlignment> SingleShortReadPathAlignerVector::GetAlignmentsForPath(const Path& p) {
   return GetAlignmentForPathWithCache(p);
@@ -31,12 +32,23 @@ vector<PairedReadAlignment> PairedReadPathAligner::GetAlignmentsForPath(const Pa
     return it->second;
   }
   vector<PairedReadAlignment> res;
+  //map<string, int> orientation_stats;
+  map<int,int> insert_stats;
 
   auto als1 = left_aligner_.GetAlignmentsForPath(p);
-  //cout << "left als: " << als1.size() << endl;
+  cout << "left als: " << als1.size() << " ";
   auto als2 = right_aligner_.GetAlignmentsForPath(p);
-  //cout << " right als: " << als2.size() << " " << endl;
+  cout << " right als: " << als2.size() << " " << " ";
   // assume they are sorted
+
+  /*cerr << endl;
+  for (auto x: als1) {
+    cerr << x.read_id << "\t";
+  }
+  cerr << endl;
+  for (auto x: als2) {
+    cerr << x.read_id << "\t";
+  }*/
 
   if (!als1.empty() && !als2.empty()) {
     auto it1 = als1.begin();
@@ -65,6 +77,9 @@ vector<PairedReadAlignment> PairedReadPathAligner::GetAlignmentsForPath(const Pa
             //cout << "eval orientation" << endl;
             const pair<string, int> characteristics = eval_orientation(*it1, (int)paired_read_set_->reads_1_[read_id].size(), *it2, (int)paired_read_set_->reads_2_[read_id].size());
             res.emplace_back(*it1, *it2, characteristics.first, characteristics.second);
+            //orientation_stats[characteristics.first] = 1 + orientation_stats[characteristics.first];
+            const int ins_bin = characteristics.second / 50;
+            insert_stats[ins_bin] = 1 + insert_stats[ins_bin];
             it2++;
           }
           it1++;
@@ -75,7 +90,13 @@ vector<PairedReadAlignment> PairedReadPathAligner::GetAlignmentsForPath(const Pa
       }
     }
   }
-  
+  //cerr << " FR:" << orientation_stats["FR"] << " \tRF:" << orientation_stats["RF"] << " \tFF:" << orientation_stats["FF"] << " \tnull:" << orientation_stats[""] << " ";
+  cerr << endl;
+  for (int i = 0; i < 100; i++) {
+    //cerr << "<" << i * 50  << ": " << insert_stats[i] << "|";
+    cerr << insert_stats[i] << "\t|";
+  }
+
   cache_[p] = res;
   return res;
 }
@@ -135,7 +156,7 @@ double HICReadPathAligner::eval_lambda(const Path &p) {
         it2 -= righties_count;
         for (int i = 0; i < righties_count; i++) {
           const pair<string,int> or_ins = eval_orientation(*it1, (int)reads_1_[read_id].size(), *it2, (int)reads_2_[read_id].size());
-          const int insert_length = or_ins.second;
+          const int insert_length = or_ins.second / binsize_;
           if (total_count == 0) {
             total_count = 1;
             res = insert_length;

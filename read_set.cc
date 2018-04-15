@@ -158,6 +158,10 @@ template<class TIndex>
 bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& candidate,
                                       const string& genome,
                                       SingleReadAlignment& al) const {
+  //cerr << "DEBUG3000 delme" << endl;
+  //cerr << "EXTEND ALIGNMENT()" << endl;
+  //cerr << "Candidate read position: read_id: " << candidate.read_id << " \tread_pos: " << candidate.read_pos << " \tgenome_pos: " << candidate.genome_pos << endl;
+
   int max_err_start = 6;
   int max_err = max_err_start;
   // Static - we reuse memory and make fewer allocations
@@ -165,7 +169,12 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
 
   // indexing: distance -> read_pos -> list of genome_positions
   auto& read = reads_[candidate.read_id];
+  //cerr << read << endl;
   int total_errs = 0;
+  int forward_matches = 0;
+  int forward_substs = 0;
+  int forward_inserts = 0;
+  int forward_dels = 0;
 
   visited_positions.Prepare(candidate.genome_pos, read.size());
 
@@ -185,6 +194,10 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
     if (x.read_pos == (int)read.size()) {
       //total_errs = x.first;
       total_errs = x.dist;
+      forward_matches = x.matches;
+      forward_substs = x.substs;
+      forward_inserts = x.inserts;
+      forward_dels = x.dels;
       break;
     }
 
@@ -200,7 +213,7 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
       if (genome[x.genome_pos] == read[x.read_pos]) {
         //auto nx = make_pair(x.first, make_pair(x.second.first+1, x.second.second+1));
         //fr.push_front(nx);
-        fr.emplace_front(x.dist, x.read_pos+1, x.genome_pos+1); // @TODO add match, subst, insert, delete
+        fr.emplace_front(x.dist, x.read_pos+1, x.genome_pos+1, x.matches+1, x.inserts, x.dels, x.substs); // @TODO add match, subst, insert, delete
         auto nx = make_pair(x.dist, make_pair(x.read_pos+1, x.genome_pos + 1));
         visited_positions.Add(nx);
         // if matches we greedily continue
@@ -212,7 +225,7 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
         auto nx = make_pair(x.dist+1, make_pair(x.read_pos+1, x.genome_pos+1));
         if (!visited_positions.IsVisited(nx)) {
           //fr.push_back(nx);
-          fr.emplace_back(x.dist+1, x.read_pos+1, x.genome_pos+1); // @TODO add match, subst, insert, delete
+          fr.emplace_back(x.dist+1, x.read_pos+1, x.genome_pos+1, x.matches, x.inserts, x.dels, x.substs+1); // @TODO add match, subst, insert, delete
           visited_positions.Add(nx);
         }
       }
@@ -223,7 +236,7 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
         auto nx = make_pair(x.dist+1, make_pair(x.read_pos, x.genome_pos+1));
         if (!visited_positions.IsVisited(nx)) {
           //fr.push_back(nx);
-          fr.emplace_back(x.dist+1, x.read_pos, x.genome_pos+1); // @TODO Add match, substs, insert, delete
+          fr.emplace_back(x.dist+1, x.read_pos, x.genome_pos+1, x.matches, x.inserts, x.dels+1, x.substs); // @TODO Add match, substs, insert, delete
           visited_positions.Add(nx);
         }
       }
@@ -234,7 +247,7 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
       auto nx = make_pair(x.dist+1, make_pair(x.read_pos+1, x.genome_pos));
       if (!visited_positions.IsVisited(nx)) {
         //fr.push_back(nx);
-        fr.emplace_back(x.dist+1, x.read_pos+1, x.genome_pos); // @TODO add match, substs, insert, delete
+        fr.emplace_back(x.dist+1, x.read_pos+1, x.genome_pos, x.matches, x.inserts+1, x.dels, x.substs); // @TODO add match, substs, insert, delete
         visited_positions.Add(nx);
       }
     }
@@ -258,10 +271,10 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
       //al.dist = total_errs + x.dist;
       //al.genome_pos = x.second.second + 1;
       al.genome_pos = x.genome_pos + 1;
-      al.matches = x.matches;
-      al.inserts = x.inserts;
-      al.dels = x.dels;
-      al.substs = x.substs;
+      al.matches = x.matches + forward_matches;
+      al.inserts = x.inserts + forward_inserts;
+      al.dels = x.dels + forward_dels;
+      al.substs = x.substs + forward_substs;
       al.dist = x.dist;
       return true;
     }

@@ -45,6 +45,8 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
 
     cout.precision(15);
     cout << "ITERATION: " << it_num << "\tT: " << T << "\tPROB: " << old_prob << "\t SIZE: " << total_size <<  endl;
+    cout << "UNALIGNED:" << probability_calculator.GetUnalignedReadsDebug() << endl;
+    cout << "PROB HISTS:"  << endl << probability_calculator.GetProbHists() << endl;
     cout.precision(6);
 
     vector<Path> new_paths;
@@ -118,7 +120,7 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
     }
 
     {
-      iter_log << it_num <<"," << old_prob << "," << total_size <<  ", \'" << move_type << "\'," << T << endl;
+      iter_log << it_num <<"," << old_prob << "," << total_size <<  ", \'" << move_type << "\'," << T << "," << probability_calculator.GetUnalignedReadsLog() << endl;
     }
   }
 
