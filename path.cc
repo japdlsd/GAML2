@@ -29,7 +29,7 @@ bool Path::CheckPath() const {
 
 string Path::ToDebugString() const {
   stringstream ret;
-  ret << "(";
+  ret << "(" << length_ << " bp|";
   for (size_t i = 0; i < nodes_.size(); i++) {
     ret << nodes_[i]->id_;
     if (i + 1 != nodes_.size()) {
@@ -66,11 +66,13 @@ string PathsToDebugString(const vector<Path>& paths) {
 
 void Path::AppendPath(const Path& p, int p_start) {
   nodes_.insert(nodes_.end(), p.nodes_.begin() + p_start, p.nodes_.end());
+  RecomputeLength();
 }
 
 void Path::AppendPathWithGap(const Path& p, int gap_length, int p_start) {
   nodes_.push_back(MakeGap(gap_length));
   nodes_.insert(nodes_.end(), p.nodes_.begin() + p_start, p.nodes_.end());
+  RecomputeLength();
 }
 
 void Path::Reverse() {
@@ -129,11 +131,13 @@ bool Path::ExtendRandomly(int big_node_threshold, int step_threshold, int distan
     Node* next_node = last_node->next_[rand()%last_node->next_.size()];
     nodes_.push_back(next_node);
     if ((int)next_node->str_.size() >= big_node_threshold) {
+      RecomputeLength();
       return true;
     }
     added_steps += 1;
     added_distance += next_node->str_.size();
   } while (added_distance <= distance_threshold && added_steps <= step_threshold);
+  RecomputeLength();
   return false;
 }
 
@@ -146,6 +150,7 @@ Path Path::CutAt(int pos, int big_node_threshold) {
   if (part2_start < nodes_.size()) p2 = Path(vector<Node*>(nodes_.begin() + part2_start, nodes_.end()), history_);
 
   nodes_ = vector<Node*>(nodes_.begin(), nodes_.begin() + (part1_end + 1));
+  RecomputeLength();
   return p2;
 }
 bool Path::isDisjoint(const Path &p) const {
@@ -228,6 +233,40 @@ void ComparePathSets(const vector<Path>& a,
     }
     if (!found) {
       removed.push_back(pa);
+    }
+  }
+}
+void ComparePathSetsWithStill(const vector<Path> &old_paths,
+                              const vector<Path> &new_paths,
+                              vector<Path> &added,
+                              vector<Path> &removed,
+                              vector<Path> &kept) {
+  for (auto &o: old_paths) {
+    bool is_in_new = false;
+    for (auto &n: new_paths) {
+      if (n.IsSame(o)) {
+        is_in_new = true;
+        break;
+      }
+    }
+    if (is_in_new) {
+      kept.push_back(o);
+    }
+    else {
+      removed.push_back(o);
+    }
+  }
+
+  for (auto &n: new_paths) {
+    bool is_in_old = false;
+    for (auto &o: old_paths) {
+      if (n.IsSame(o)) {
+        is_in_old = true;
+        break;
+      }
+    }
+    if (!is_in_old) {
+      added.push_back(n);
     }
   }
 }

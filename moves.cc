@@ -133,6 +133,7 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
 
   // exclude nondisjoint paths
   vector<int> disjoint_path_ids;
+  // const auto disjoint_length = (int)(pc.mean_distance_ + pc.std_distance_ * 3);
   const auto disjoint_length = (int)(pc.mean_distance_ + pc.std_distance_ * 3);
   for (int i = 0; i < (int)paths.size(); i++) {
     //cerr << "checking path[" << i << "] for disjointness with given path" << endl;
@@ -149,73 +150,42 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
 
   // align paired reads to the start path
   vector<SingleReadAlignment> start_left_alignments = pc.path_aligner_.GetPartAlignmentsForPath(start_path, 0);
-  sort(start_left_alignments.begin(), start_left_alignments.end());
+  //sort(start_left_alignments.begin(), start_left_alignments.end());
   vector<SingleReadAlignment> start_right_alignments = pc.path_aligner_.GetPartAlignmentsForPath(start_path, 1);
-  sort(start_right_alignments.begin(), start_right_alignments.end());
+  //sort(start_right_alignments.begin(), start_right_alignments.end());
 
   //cerr << "paired reads aligned to the start path" << endl;
 
-  // align all paired reads to the filtered paths
-  vector<vector<SingleReadAlignment>> left_alignments(paths.size()), right_alignments(paths.size());
 
-  int counter = 0;
-  for (int i: disjoint_path_ids) {
-    left_alignments[i] = pc.path_aligner_.GetPartAlignmentsForPath(paths[i], 0);
-    sort(left_alignments[i].begin(), left_alignments[i].end());
-    right_alignments[i] = pc.path_aligner_.GetPartAlignmentsForPath(paths[i], 1);
-    sort(right_alignments[i].begin(), right_alignments[i].end());
-
-    // debug output
-    counter++;
-    if (counter % 10 == 0) cerr << "\r" << counter << " paths aligned";
-  }
-  cerr << endl; // debug output
-
-  //cerr << "paired reads aligned to the filtered disjoint paths" << endl;
-
-  // evaluate score for each path
   unordered_map<int,int> start_left_count, start_right_count;
-  int max_read_id = 0;
   for (auto al: start_left_alignments){
     start_left_count[al.read_id] = 1 + start_left_count[al.read_id];
-    max_read_id = max(max_read_id, al.read_id);
   }
   for (auto al: start_right_alignments) {
     start_right_count[al.read_id] = 1 + start_right_count[al.read_id];
-    max_read_id = max(max_read_id, al.read_id);
   }
-
-  //cerr << "alignment counts for start path evaluated." << endl;
 
   vector<int> path_score(paths.size(), 0);
+  vector<SingleReadAlignment> als1, als2;
+  for (int i: disjoint_path_ids) {
+    const Path& p = paths[i];
+    als1 = pc.path_aligner_.GetPartAlignmentsForPath(p, 0);
+    als2 = pc.path_aligner_.GetPartAlignmentsForPath(p, 1);
 
-  for (int path_id: disjoint_path_ids) {
-    const auto &lefts = left_alignments[path_id];
-    const auto &rights = right_alignments[path_id];
-    if (lefts.empty() && rights.empty()) continue;
-
-    auto it_left = lefts.begin();
-    auto it_right = rights.begin();
-
-    for (int read_id = 0; read_id <= max_read_id; read_id++) {
-      // amount of left and right parts of read (id=read_id), aligned to the given (target) path
-      int target_lefts = 0, target_rights = 0;
-
-      while (it_left != lefts.end() && it_left->read_id < read_id) it_left++;
-      while (it_left != lefts.end() && it_left->read_id == read_id) {
-        target_lefts++;
-        it_left++;
+    for (auto al1: als1) {
+      auto it = start_left_count.find(al1.read_id);
+      if (it != start_left_count.end()) {
+        path_score[i] += it->second;
       }
-
-      while (it_right != rights.end() && it_right->read_id < read_id) it_right++;
-      while (it_right != rights.end() && it_right->read_id == read_id) {
-        target_rights++;
-        it_right++;
+    }
+    for (auto al2: als2) {
+      auto it = start_right_count.find(al2.read_id);
+      if (it != start_right_count.end()) {
+        path_score[i] += it->second;
       }
-
-      path_score[path_id] += start_left_count[read_id] * target_rights + start_right_count[read_id] * target_lefts;
     }
   }
+
 
   //cerr << "DISJOINT PATHS WITH SCORES:" << endl;
   //for (int path_id: disjoint_path_ids) {
@@ -281,7 +251,7 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
 
   // @TODO add to the config
   const int SAMPLE_NUM = 300;
-  const int MAX_CONN_LENGTH = disjoint_length * 1; // bases, not nodes
+  const int MAX_CONN_LENGTH = disjoint_length * 2; // bases, not nodes
 
   if (!first_pool_ids.empty()) {
     unordered_set<int> desired_targets({yb->id_, yer->id_});
@@ -303,6 +273,7 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
     unordered_set<int> desired_targets({xb->id_, xer->id_});
     for (int num = 0; num < SAMPLE_NUM; num++) {
       Path p = SampleRandomWalk(ye, second_pool_ids, desired_targets, MAX_CONN_LENGTH);
+      cout << "\r" << num+1 << " paths sampled";
       if (p.back() == xb || p.back() == xer) {
         bool is_new_path = true;
         for (const auto ex_p: possible_connections) {
@@ -315,6 +286,7 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
       }
     }
   }
+  cout << endl;
 
   //cerr << "possible connections: " << endl;
   //for (auto &p: possible_connections) {
@@ -371,27 +343,251 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
     ProbabilityChanges pp_change;
     double score = pc_global.GetPathsProbability(out_paths, pp_change);
     if (score > best_score) {
+      pc_global.RemovePathFromCache(best_path);
       best_path = np;
     }
+    else {
+      pc_global.RemovePathFromCache(np);
+    }
     out_paths.pop_back();
+  }
+  //out_paths.pop_back(); <-- it removed some valid path not meant to be deleted
+  out_paths.push_back(best_path);
+  return true;
+}
 
-    /*
-    // @TODO check for correct initialising of pp_change
-    PairedProbabilityChange pp_change;
-    pp_change.added_paths.push_back(np);
-    pp_change.removed_paths.push_back(target_path);
-    pp_change.removed_paths.push_back(start_path);
+bool JoinWithAdviceHic(const vector<Path>& paths, vector<Path>& out_paths,
+                       const MoveConfig& config, HICReadProbabilityCalculator& pc, GlobalProbabilityCalculator& pc_global) {
+  cerr << "JoinWithAdviceHIC()" << endl;
 
-    pp_change.new_paths_length = pc.GetPathsLength(paths) - (int)start_path.ToString(true).size() - (int)target_path.ToString(true).size() + (int)np.ToString(true).size();
-    //pp_change.new_paths = paths;
+  if (paths.empty()) return false;
+  // choose path to extend (by joining another path) randomly
+  // @TODO maybe take into consideration amount of mismatched paired reads
+  const int start_path_id = rand() % (int)paths.size();
+  const Path& start_path = paths[start_path_id];
 
-    pc.EvalProbabilityChange(pp_change, false);
-    double score = pc.EvalTotalProbabilityFromChange(pp_change, false);
-    cerr << "Path (score: "<< score << "): " << np.ToDebugString() << endl;
+  //cerr << "start_path_id: " << start_path_id << endl;
+  //cerr << "start_path: " << start_path.ToDebugString() << endl;
+
+  // exclude nondisjoint paths
+  vector<int> disjoint_path_ids;
+  // const auto disjoint_length = (int)(pc.mean_distance_ + pc.std_distance_ * 3);
+  const auto disjoint_length = 300;
+  for (int i = 0; i < (int)paths.size(); i++) {
+    //cerr << "checking path[" << i << "] for disjointness with given path" << endl;
+    //cerr << paths[i].ToDebugString() << endl;
+    if (start_path.isPartlyDisjoint(paths[i], disjoint_length)) {
+      disjoint_path_ids.push_back(i);
+    }
+  };
+  if (disjoint_path_ids.empty()) return false;
+
+  //cerr << "Disjoint path ids:";
+  //for (int i: disjoint_path_ids) cerr << " " << i;
+  //cerr << endl;
+
+  // align paired reads to the start path
+  vector<SingleReadAlignment> start_left_alignments = pc.path_aligner_.GetPartAlignmentsForPath(start_path, 0);
+  //sort(start_left_alignments.begin(), start_left_alignments.end());
+  vector<SingleReadAlignment> start_right_alignments = pc.path_aligner_.GetPartAlignmentsForPath(start_path, 1);
+  //sort(start_right_alignments.begin(), start_right_alignments.end());
+
+  //cerr << "paired reads aligned to the start path" << endl;
+
+
+  unordered_map<int,int> start_left_count, start_right_count;
+  for (auto al: start_left_alignments){
+    start_left_count[al.read_id] = 1 + start_left_count[al.read_id];
+  }
+  for (auto al: start_right_alignments) {
+    start_right_count[al.read_id] = 1 + start_right_count[al.read_id];
+  }
+
+  vector<int> path_score(paths.size(), 0);
+  vector<SingleReadAlignment> als1, als2;
+  for (int i: disjoint_path_ids) {
+    const Path& p = paths[i];
+    als1 = pc.path_aligner_.GetPartAlignmentsForPath(p, 0);
+    als2 = pc.path_aligner_.GetPartAlignmentsForPath(p, 1);
+
+    for (auto al1: als1) {
+      auto it = start_left_count.find(al1.read_id);
+      if (it != start_left_count.end()) {
+        path_score[i] += it->second;
+      }
+    }
+    for (auto al2: als2) {
+      auto it = start_right_count.find(al2.read_id);
+      if (it != start_right_count.end()) {
+        path_score[i] += it->second;
+      }
+    }
+  }
+
+
+  //cerr << "DISJOINT PATHS WITH SCORES:" << endl;
+  //for (int path_id: disjoint_path_ids) {
+  //  if (path_score[path_id] > 0)  cerr << path_score[path_id] << "\t!! " << paths[path_id].ToDebugString() << endl;
+  //  else cerr << "-\t   " << paths[path_id].ToDebugString() << endl;
+  //}
+
+  // choose randomly (based on score) the walk to join (with the orientation and complementarity)
+  const int target_path_id = chooseWeightedRandomly(path_score);
+  if (target_path_id == -1) return false;
+  const Path& target_path = paths[target_path_id];
+  //cerr << "Chosen target path: " << target_path_id << " :: " << target_path.ToDebugString() << endl;
+
+  // sample (randomly) possible connections
+  // choose the best
+
+  // start path:  xb ----> xe. xbr := xb->rc_, xer := xe->rc_
+  // target path: yb ----> ye. ybr := yb->rc_, yer := ye->rc_
+  Node* xb = start_path.nodes_.front();
+  Node* xe = start_path.nodes_.back();
+  //Node* xbr = xb->rc_;
+  Node* xer = xe->rc_;
+  Node* yb = target_path.nodes_.front();
+  Node* ye = target_path.nodes_.back();
+  //Node* ybr = yb->rc_;
+  Node* yer = ye->rc_;
+
+  // 4 possibilities: xe ---> (yb | yer) ;  ye ---> ( xb | xer)
+  Graph* G = xb->graph_;
+  const vector<Node*> yb_drb = G->GetDrainageBasinForNode(yb);
+  const vector<Node*> yer_drb = G->GetDrainageBasinForNode(yer);
+
+  const vector<Node*> xb_drb = G->GetDrainageBasinForNode(xb);
+  const vector<Node*> xer_drb = G->GetDrainageBasinForNode(xer);
+
+  //cerr << "yb_drb\t:: "; for(auto x: yb_drb) cerr << x->id_ << " "; cerr << endl;
+  //cerr << "yer_drb\t:: "; for(auto x: yer_drb) cerr << x->id_ << " "; cerr << endl;
+  //cerr << "xb_drb\t:: "; for(auto x: xb_drb) cerr << x->id_ << " "; cerr << endl;
+  //cerr << "xer_drb\t:: "; for(auto x: xer_drb) cerr << x->id_ << " "; cerr << endl;
+
+  unordered_set<int> first_pool_ids, second_pool_ids;
+
+  for (const auto &A: {yb_drb, yer_drb}) {
+    if (find(A.begin(), A.end(), xe) != A.end()) {
+      for (auto n: A) {
+        first_pool_ids.insert(n->id_);
+      }
+    }
+  }
+
+  for (const auto &A: {xb_drb, xer_drb}) {
+    if (find(A.begin(), A.end(), ye) != A.end()) {
+      for (auto n: A) {
+        second_pool_ids.insert(n->id_);
+      }
+    }
+  }
+
+  //cerr << "first pool ids: [size: " << first_pool_ids.size() << "] "; for(int x: first_pool_ids) cerr << x << " "; cerr << endl;
+  //cerr << "second pool ids: [size: " << second_pool_ids.size() << "] "; for(int x: second_pool_ids) cerr << x << " "; cerr << endl;
+
+  vector<Path> possible_connections;
+
+  // @TODO add to the config
+  const int SAMPLE_NUM = 300;
+  const int MAX_CONN_LENGTH = disjoint_length * 2; // bases, not nodes
+
+  if (!first_pool_ids.empty()) {
+    unordered_set<int> desired_targets({yb->id_, yer->id_});
+    for (int num = 0; num < SAMPLE_NUM; num++) {
+      Path p = SampleRandomWalk(xe, first_pool_ids, desired_targets, MAX_CONN_LENGTH);
+      if (p.back() == yb || p.back() == yer) {
+        bool is_new_path = true;
+        for (auto ex_p: possible_connections) {
+          if (ex_p.IsSameNoReverse(p)) {
+            is_new_path = false;
+            break;
+          }
+        }
+        if (is_new_path) possible_connections.push_back(p);
+      }
+    }
+  }
+  if (!second_pool_ids.empty()) {
+    unordered_set<int> desired_targets({xb->id_, xer->id_});
+    for (int num = 0; num < SAMPLE_NUM; num++) {
+      Path p = SampleRandomWalk(ye, second_pool_ids, desired_targets, MAX_CONN_LENGTH);
+      cout << "\r" << num+1 << " paths sampled";
+      if (p.back() == xb || p.back() == xer) {
+        bool is_new_path = true;
+        for (const auto ex_p: possible_connections) {
+          if (ex_p.IsSameNoReverse(p)) {
+            is_new_path = false;
+            break;
+          }
+        }
+        if (is_new_path) possible_connections.push_back(p);
+      }
+    }
+  }
+  cout << endl;
+
+  //cerr << "possible connections: " << endl;
+  //for (auto &p: possible_connections) {
+  //  cerr << p.ToDebugString() << endl;
+  //}
+
+  if (possible_connections.empty()) return false;
+
+  Path best_path;
+  double best_score = -10000000000;
+
+  out_paths.clear();
+  out_paths.reserve(paths.size() - 1);
+  for (int i = 0; i < (int)paths.size(); i++) {
+    if (i != start_path_id && i != target_path_id) {
+      out_paths.push_back(paths[i]);
+    }
+  }
+
+
+  for (auto &p: possible_connections) {
+    vector<Node*> cut_nodes(p.nodes_.begin() + 1, p.nodes_.end() - 1);
+    Path inter_path(cut_nodes);
+
+    Path np;
+
+    if (p[0] == xe) {
+      if (p.nodes_.back() == yb) {
+        np = Path(start_path.nodes_);
+        np.AppendPath(inter_path);
+        np.AppendPath(target_path);
+      }
+      if (p.nodes_.back() == yer) {
+        np = Path(start_path.nodes_);
+        np.AppendPath(inter_path);
+        np.AppendPath(target_path.GetReverse());
+      }
+    }
+    if (p[0] == ye) {
+      if (p.nodes_.back() == xb) {
+        np = Path(target_path.nodes_);
+        np.AppendPath(inter_path);
+        np.AppendPath(start_path);
+      }
+      if (p.nodes_.back() == xer) {
+        np = Path(target_path.nodes_);
+        np.AppendPath(inter_path);
+        np.AppendPath(start_path.GetReverse());
+      }
+    }
+    np.history_ = start_path.history_ + PATH_JOIN;
+
+    out_paths.push_back(np);
+    ProbabilityChanges pp_change;
+    double score = pc_global.GetPathsProbability(out_paths, pp_change);
     if (score > best_score) {
-      best_score = score;
+      pc_global.RemovePathFromCache(best_path);
       best_path = np;
-    }*/
+    }
+    else {
+      pc_global.RemovePathFromCache(np);
+    }
+    out_paths.pop_back();
   }
   //out_paths.pop_back(); <-- it removed some valid path not meant to be deleted
   out_paths.push_back(best_path);
@@ -409,14 +605,32 @@ bool JoinWithAdvice(const vector<Path>& paths, vector<Path>& out_paths,
     }
   }
 
+  for (int i = 0; i < (int)pc.hic_read_calculators_.size(); i++) {
+    auto &p = pc.hic_read_calculators_[i];
+    if (p.first.use_as_advice_) {
+      available_paired_read_sets.push_back(i + (int)pc.paired_read_calculators_.size());
+    }
+  }
+
   if (available_paired_read_sets.empty()) {
     return false;
   }
 
   const int which_dataset_to_choose = rand() % (int)available_paired_read_sets.size();
-  return JoinWithAdvicePaired(paths, out_paths, config,
-                              pc.paired_read_calculators_[available_paired_read_sets[which_dataset_to_choose]].first, pc);
-
+  if (which_dataset_to_choose < pc.paired_read_calculators_.size()) {
+    return JoinWithAdvicePaired(paths,
+                                out_paths,
+                                config,
+                                pc.paired_read_calculators_[available_paired_read_sets[which_dataset_to_choose]].first,
+                                pc);
+  }
+  else {
+    return JoinWithAdviceHic(paths,
+                             out_paths,
+                             config,
+                             pc.hic_read_calculators_[available_paired_read_sets[which_dataset_to_choose-(int)pc.paired_read_calculators_.size()]].first,
+                             pc);
+  }
   // @TODO add HiC choice
 }
 
@@ -684,12 +898,12 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
   for (auto &p: paths) {
     if (!p.IsSame(p1) && !p.IsSame(p2)) new_paths.push_back(p);
   }
-  cerr << "old: ";
-  cerr << PathsToDebugString(paths);
-  cerr << "new without changed: ";
-  cerr << PathsToDebugString(new_paths);
-  cerr << "new_paths.size(): " << new_paths.size() << "; paths.size(): " << paths.size() << endl;
-  assert(new_paths.size() + 2 == paths.size());
+  //cerr << "old: ";
+  //cerr << PathsToDebugString(paths);
+  //cerr << "new without changed: ";
+  //cerr << PathsToDebugString(new_paths);
+  //cerr << "new_paths.size(): " << new_paths.size() << "; paths.size(): " << paths.size() << endl;
+  //assert(new_paths.size() + 2 == paths.size()); <- it doesn't have to hold
 
   double best_prob = -100000000;
   int best_k = 0;
@@ -712,22 +926,26 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
     }
   }
 
-  const int removed_paths_length = (int)p1.ToString(true).size() + (int)p2.ToString(true).size();
-  int added_paths_length = 0;
-  for (auto &p: added_paths[best_k]) added_paths_length += p.ToString(true).size();
+  for (int k = 0; k < (int)added_paths.size(); k++) {
+    if (k != best_k) probability_calculator.RemovePathsFromCache(added_paths[k]);
+  }
 
-  if (1){
+  const int removed_paths_length = (int)p1.GetLength() + (int)p2.GetLength();
+  int added_paths_length = 0;
+  for (auto &p: added_paths[best_k]) added_paths_length += p.GetLength();
+
+  if (0){
     cerr << "removed paths: \n";
-    cerr << "[L:" << p1.ToString(true).size() << "]\t" << p1.ToDebugString() << endl;
-    cerr << "[L:" << p2.ToString(true).size() << "]\t" << p2.ToDebugString() << endl;
+    cerr << "[L:" << p1.GetLength() << "]\t" << p1.ToDebugString() << endl;
+    cerr << "[L:" << p2.GetLength() << "]\t" << p2.ToDebugString() << endl;
 
     cerr << "best added_paths: \n";
     for (int i = 0; i < (int)added_paths[best_k].size(); i++) {
-      cerr << "[L:" << added_paths[best_k][i].ToString(true).size() << "]\t" << added_paths[best_k][i].ToDebugString() << endl;
+      cerr << "[L:" << added_paths[best_k][i].GetLength() << "]\t" << added_paths[best_k][i].ToDebugString() << endl;
     }
   }
 
-  assert(removed_paths_length >= added_paths_length - 2 * (p1[0]->graph_->k_ - 1));
+  //assert(removed_paths_length >= added_paths_length - 2 * (p1[0]->graph_->k_ - 1));
 
   new_paths.resize(paths.size() - 2);
   new_paths.insert(new_paths.end(), added_paths[best_k].begin(), added_paths[best_k].end());

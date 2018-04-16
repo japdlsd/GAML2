@@ -30,14 +30,14 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
 
   probability_calculator.CommitProbabilityChanges(prob_changes);
 
-  cout << "INITIAL PATHS:" << endl;
-  cout << PathsToDebugString(paths) << endl;
+  //cout << "INITIAL PATHS:" << endl;
+  //cout << PathsToDebugString(paths) << endl;
 
   ofstream iter_log(gaml_config.iter_log_file());
   iter_log.precision(15);
 
   MoveConfig move_config;
-  string move_type = "";
+  string move_type;
   long long total_size = prob_changes.getLength();
 
   for (int it_num = 1; it_num <= gaml_config.num_iterations() && NOT_SIGINTED; it_num++) {
@@ -45,6 +45,8 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
 
     cout.precision(15);
     cout << "ITERATION: " << it_num << "\tT: " << T << "\tPROB: " << old_prob << "\t SIZE: " << total_size <<  endl;
+    cout << "UNALIGNED:" << probability_calculator.GetUnalignedReadsDebug() << endl;
+    cout << "PROB HISTS:"  << endl << probability_calculator.GetProbHists() << endl;
     cout.precision(6);
 
     vector<Path> new_paths;
@@ -88,8 +90,27 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
       paths = new_paths;
       probability_calculator.CommitProbabilityChanges(prob_changes);
       total_size = prob_changes.getLength();
+
+      // debug log
+      if ( !prob_changes.paired_read_changes.empty() ) {
+        cout << "\nACCEPTED ADDINGS: " << "\n";
+        cout << PathsToDebugString(prob_changes.paired_read_changes[0].added_paths) << "\n";
+        cout << "ACCEPTED REMOVALS: " << "\n";
+        cout << PathsToDebugString(prob_changes.paired_read_changes[0].removed_paths) << endl;
+      }
     }
-    cout << endl << "PROPOSED PATHS:\n" <<  PathsToDebugString(new_paths) << endl << endl;
+    else {
+      if (!probability_calculator.paired_read_calculators_.empty()) {
+        probability_calculator.RemovePathsFromCache(prob_changes.paired_read_changes[0].added_paths);
+      }
+      else if (!probability_calculator.hic_read_calculators_.empty()) {
+        probability_calculator.RemovePathsFromCache(prob_changes.hic_read_changes[0].added_paths);
+      }
+      else if (!probability_calculator.single_read_calculators_.empty()) {
+        probability_calculator.RemovePathsFromCache(prob_changes.single_read_changes[0].added_paths);
+      }
+
+    }
 
     // continual output
 
@@ -99,7 +120,7 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
     }
 
     {
-      iter_log << it_num <<"," << old_prob << "," << total_size <<  ", \'" << move_type << "\'," << T << endl;
+      iter_log << it_num <<"," << old_prob << "," << total_size << ", \'"  << move_type << "\'," << T << "," << probability_calculator.GetUnalignedReadsLog() << endl;
     }
   }
 
