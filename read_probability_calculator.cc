@@ -238,12 +238,15 @@ double PairedReadProbabilityCalculator::EvalTotalProbabilityFromChange(const Pai
   new_prob += log(2 * old_paths_length_) * read_set_->size();
   new_prob -= log(2 * prob_change.new_paths_length) * read_set_->size();
 
+  map<string, int> orient_stats;
+
   // (read_id, prob_change)
   vector< pair<int, double> > changes;
   for (auto &a: prob_change.added_alignments) {
     //changes.push_back(make_pair(a.read_id, GetAlignmentProb(a)));
     changes.emplace_back(a.read_id, GetAlignmentProb(a));
     if (write) read_als_[a.read_id]++;
+    orient_stats[a.orientation] = 1 + orient_stats[a.orientation];
   }
 
   for (auto &a: prob_change.removed_alignments) {
@@ -281,6 +284,11 @@ double PairedReadProbabilityCalculator::EvalTotalProbabilityFromChange(const Pai
     }
   }
   if (write) total_log_prob_ = new_prob;
+  cerr  << "ORIENTATION STATS GLOBAL: ";
+  for (auto &o: { "FR", "RF","FF", "RR", ""}) {
+    cerr << o << ": " << orient_stats[o] << " \t";
+  }
+  cerr << endl;
   return new_prob;
 }
 
@@ -296,12 +304,6 @@ int PairedReadProbabilityCalculator::GetPathsLength(const vector<Path> &paths) c
 
 
 bool is_same_orientation (const string& o1, const string& o2) {
-  // @DEBUG
-  return (o2 != "");
-
-  // old version
-
-
   if (o1 == o2) {
     return true;
   }

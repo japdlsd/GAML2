@@ -187,6 +187,8 @@ class PairedReadProbabilityCalculator {
     total_log_prob_ = InitTotalLogProb();
 
     read_als_.resize(read_set_->size(), 0);
+    read_part_als_1.resize(read_set_->size(), 0);
+    read_part_als_2.resize(read_set_->size(), 0);
 
     total_reads_length_ = 0;
     for (size_t i = 0; i < read_set_->size(); i++) total_reads_length_ += read_set_->reads_1_[i].size() + read_set_->reads_2_[i].size();
@@ -303,6 +305,7 @@ class PairedReadProbabilityCalculator {
   vector<Path> old_paths_;
 
   vector<int> read_als_;
+  vector<int> read_part_als_1, read_part_als_2;
 
 };
 

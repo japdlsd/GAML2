@@ -37,7 +37,8 @@ vector<CandidateReadPosition> StandardReadIndex::GetReadCandidates(const string&
 void RandomIndex::AddRead(int id, const string& data) {
   if ((int) data.size() < k_) return;
   for (int i = 0; i < 3; i++) {
-    int p = rand()%(data.size() - k_ + 1);
+  //for (int i = 0; i < 8; i++) {
+      int p = rand()%(data.size() - k_ + 1);
     //index_[data.substr(p, k_)].push_back(make_pair(id, p));
     index_[data.substr(p, k_)].emplace_back(id, p);
   }
@@ -162,7 +163,8 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
   //cerr << "EXTEND ALIGNMENT()" << endl;
   //cerr << "Candidate read position: read_id: " << candidate.read_id << " \tread_pos: " << candidate.read_pos << " \tgenome_pos: " << candidate.genome_pos << endl;
 
-  int max_err_start = 6;
+  //int max_err_start = 6;
+  int max_err_start = 3;
   int max_err = max_err_start;
   // Static - we reuse memory and make fewer allocations
   static VisitedPositions visited_positions;
@@ -554,19 +556,19 @@ pair<string, int> eval_orientation(const SingleReadAlignment& als1, const int r1
     if (b1 <= b2 && e1 <= e2) {
       orientation = "FR";
     }
-    if (b2 <= b1 && e2 <= e1) {
+    else if (b2 <= b1 && e2 <= e1) {
       orientation = "RF";
     }
     else {
       orientation = "";
     }
   }
-  if (als1.reversed && !als2.reversed) {
+  else if (als1.reversed && !als2.reversed) {
     // FR or RF
     if (b1 <= b2 && e1 <= e2) {
       orientation = "RF";
     }
-    if (b2 <= b1 && e2 <= e1) {
+    else if (b2 <= b1 && e2 <= e1) {
       orientation = "FR";
     }
     else {

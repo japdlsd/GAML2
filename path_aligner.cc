@@ -32,13 +32,36 @@ vector<PairedReadAlignment> PairedReadPathAligner::GetAlignmentsForPath(const Pa
     return it->second;
   }
   vector<PairedReadAlignment> res;
-  //map<string, int> orientation_stats;
+  map<string, int> orientation_stats;
   map<int,int> insert_stats;
+
+  // @DEBUG 3000
+  const int read_count = 99000;
+  vector<int> part_als_count_1(read_count, 0), part_als_count_2(read_count, 0);
 
   auto als1 = left_aligner_.GetAlignmentsForPath(p);
   cout << "left als: " << als1.size() << " ";
+  for (auto &a: als1) {
+    part_als_count_1[a.read_id]++;
+  }
   auto als2 = right_aligner_.GetAlignmentsForPath(p);
   cout << " right als: " << als2.size() << " " << " ";
+  for (auto &a: als2) {
+    part_als_count_2[a.read_id]++;
+  }
+
+  cerr << "\nPART STATS: " << endl;
+  map<pair<int,int>,int> part_stats;
+  for (int i = 0; i < read_count; i++) {
+    part_stats[make_pair(part_als_count_1[i], part_als_count_2[i])] = 1 + part_stats[make_pair(part_als_count_1[i], part_als_count_2[i])];
+  }
+  for (int i = 0; i < 10; i++) {
+    for (int j = 0; j < 10; j++) {
+      cerr << part_stats[make_pair(i,j)] << " \t";
+    }
+    cerr << endl;
+  }
+
   // assume they are sorted
 
   /*cerr << endl;
@@ -77,7 +100,7 @@ vector<PairedReadAlignment> PairedReadPathAligner::GetAlignmentsForPath(const Pa
             //cout << "eval orientation" << endl;
             const pair<string, int> characteristics = eval_orientation(*it1, (int)paired_read_set_->reads_1_[read_id].size(), *it2, (int)paired_read_set_->reads_2_[read_id].size());
             res.emplace_back(*it1, *it2, characteristics.first, characteristics.second);
-            //orientation_stats[characteristics.first] = 1 + orientation_stats[characteristics.first];
+            orientation_stats[characteristics.first] = 1 + orientation_stats[characteristics.first];
             const int ins_bin = characteristics.second / 50;
             insert_stats[ins_bin] = 1 + insert_stats[ins_bin];
             it2++;
@@ -90,7 +113,7 @@ vector<PairedReadAlignment> PairedReadPathAligner::GetAlignmentsForPath(const Pa
       }
     }
   }
-  //cerr << " FR:" << orientation_stats["FR"] << " \tRF:" << orientation_stats["RF"] << " \tFF:" << orientation_stats["FF"] << " \tnull:" << orientation_stats[""] << " ";
+  cerr << " FR:" << orientation_stats["FR"] << " \tRF:" << orientation_stats["RF"] << " \tFF:" << orientation_stats["FF"] << " \tnull:" << orientation_stats[""] << " ";
   cerr << endl;
   for (int i = 0; i < 100; i++) {
     //cerr << "<" << i * 50  << ": " << insert_stats[i] << "|";
