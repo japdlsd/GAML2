@@ -44,7 +44,7 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
     double T = gaml_config.t0() / log(it_num / gaml_config.n_divisor() + 1);
 
     cout.precision(15);
-    cout << "ITERATION: " << it_num << "\tT: " << T << "\tPROB: " << old_prob << "\t SIZE: " << total_size <<  endl;
+    cout << "ITERATION: " << it_num << "\t T: " << T << "\t PROB: " << old_prob << "\t SIZE: " << total_size <<  endl;
     cout << "UNALIGNED:" << probability_calculator.GetUnalignedReadsDebug() << endl;
     cout << "PROB HISTS:"  << endl << probability_calculator.GetProbHists() << endl;
     cout.precision(6);

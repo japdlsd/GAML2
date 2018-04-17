@@ -788,7 +788,7 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
     const double read_prob = new_cis_constant_ * new_cis_phis[i] + new_trans_constant * new_trans_psis[i];
     new_total_prob += GetRealReadProbability(read_prob, i);
     counter += 1;
-    if (counter % 1000 == 0) cout << "\rEvaled total prob for " << counter << " reads";
+    if (counter % 100000 == 0) cout << "\rEvaled total prob for " << counter << " reads";
   }
   cout << "\rEvaled total prob for " << counter << " reads" << endl;
 
