@@ -182,7 +182,9 @@ double PairedReadProbabilityCalculator::GetPathsProbability(const vector<Path> &
   prob_change.removed_alignments.clear();
   ComparePathSets(old_paths_, paths, prob_change.added_paths, prob_change.removed_paths);
 
+
   prob_change.new_paths_length = GetPathsLength(paths);
+
   prob_change.new_paths = paths;
 
   EvalProbabilityChange(prob_change);
@@ -191,8 +193,11 @@ double PairedReadProbabilityCalculator::GetPathsProbability(const vector<Path> &
 }
 void PairedReadProbabilityCalculator::EvalProbabilityChange(PairedProbabilityChange &prob_change, bool debug_output) {
   for (size_t i = 0; i < prob_change.added_paths.size(); i++) {
+
     auto &p = prob_change.added_paths[i];
+
     auto als = path_aligner_.GetAlignmentsForPath(p);
+
     prob_change.added_alignments.insert(prob_change.added_alignments.end(), als.begin(), als.end());
     if (debug_output) printf("\n(added_paths) done %d/%d evals; %d alignments", (int) i+1, (int) prob_change.added_paths.size(), (int) als.size());
     if (debug_output) fflush(stdout);
@@ -427,6 +432,7 @@ double GlobalProbabilityCalculator::GetPathsProbability(
 
   prob_changes.paired_read_changes.clear();
   for (auto &paired_read_calculator: paired_read_calculators_) {
+
     PairedProbabilityChange ch;
     double prob = paired_read_calculator.first.GetPathsProbability(paths, ch);
     total_prob += prob * paired_read_calculator.second;

@@ -26,6 +26,7 @@ vector<SingleReadAlignment> SingleShortReadPathAlignerVector::GetAlignmentForPat
   return ret;
 }
 vector<PairedReadAlignment> PairedReadPathAligner::GetAlignmentsForPath(const Path &p) {
+
   auto it = cache_.find(p);
   if (it != cache_.end()) {
     //cout << "cache hit" << endl;
@@ -35,32 +36,12 @@ vector<PairedReadAlignment> PairedReadPathAligner::GetAlignmentsForPath(const Pa
   map<string, int> orientation_stats;
   map<int,int> insert_stats;
 
-  // @DEBUG 3000
-  const int read_count = 99000;
-  vector<int> part_als_count_1(read_count, 0), part_als_count_2(read_count, 0);
 
   auto als1 = left_aligner_.GetAlignmentsForPath(p);
   cout << "left als: " << als1.size() << " ";
-  for (auto &a: als1) {
-    part_als_count_1[a.read_id]++;
-  }
+
   auto als2 = right_aligner_.GetAlignmentsForPath(p);
   cout << " right als: " << als2.size() << " " << " ";
-  for (auto &a: als2) {
-    part_als_count_2[a.read_id]++;
-  }
-
-  cerr << "\nPART STATS: " << endl;
-  map<pair<int,int>,int> part_stats;
-  for (int i = 0; i < read_count; i++) {
-    part_stats[make_pair(part_als_count_1[i], part_als_count_2[i])] = 1 + part_stats[make_pair(part_als_count_1[i], part_als_count_2[i])];
-  }
-  for (int i = 0; i < 10; i++) {
-    for (int j = 0; j < 10; j++) {
-      cerr << part_stats[make_pair(i,j)] << " \t";
-    }
-    cerr << endl;
-  }
 
   // assume they are sorted
 

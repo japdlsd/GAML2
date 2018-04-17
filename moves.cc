@@ -908,8 +908,10 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
   double best_prob = -100000000;
   int best_k = 0;
 
+  const auto other_paths_size = new_paths.size();
+
   for (int k = 0; k < (int)added_paths.size(); k++) {
-    new_paths.resize(paths.size() - 2);
+    new_paths.resize(other_paths_size);
     new_paths.insert(new_paths.end(), added_paths[k].begin(), added_paths[k].end());
     // debug
     if (0){
@@ -947,7 +949,7 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
 
   //assert(removed_paths_length >= added_paths_length - 2 * (p1[0]->graph_->k_ - 1));
 
-  new_paths.resize(paths.size() - 2);
+  new_paths.resize(other_paths_size);
   new_paths.insert(new_paths.end(), added_paths[best_k].begin(), added_paths[best_k].end());
   out_paths = new_paths;
   return true;
@@ -969,6 +971,7 @@ pair<bool, string> TryMove(const vector<Path>& paths, vector<Path>& out_paths, c
   // @TODO add probs of moves into config
 
   vector<int> ratios = {5, 5, 10, 10};
+
   const int move_type = chooseWeightedRandomly(ratios);
 
   if (move_type == 0) {
