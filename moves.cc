@@ -970,7 +970,7 @@ pair<bool, string> TryMove(const vector<Path>& paths, vector<Path>& out_paths, c
              bool& accept_higher_prob) {
   // @TODO add probs of moves into config
 
-  vector<int> ratios = {5, 5, 10, 10};
+  vector<int> ratios = {5, 5, 40, 10};
 
   const int move_type = chooseWeightedRandomly(ratios);
 
@@ -987,7 +987,7 @@ pair<bool, string> TryMove(const vector<Path>& paths, vector<Path>& out_paths, c
   // @TODO Joining with advice move (high priority)
   if (move_type == 2) {
     cout << "JoinWithAdvice()" << endl;
-    accept_higher_prob = true; // @TODO check with Usama if correct
+    accept_higher_prob = false; // @TODO check with Usama if correct
     return make_pair(JoinWithAdvice(paths, out_paths, config, probability_calculator), PATH_JOIN);
   }
   if (move_type == 3) {

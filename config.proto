@@ -41,6 +41,10 @@ message PairedReadSet {
     optional double weight = 7 [default = 1];
     // If set then we use this read set as advice during walk extending.
     optional bool use_as_advice = 11 [default = false];
+
+    // after logarithmising
+    optional int32 uncovered_threshold = 16 [default = 50];
+    optional double uncovered_penalty = 15 [default = -0.7];
 }
 
 message HiCReadSet {
