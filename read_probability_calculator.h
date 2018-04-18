@@ -176,13 +176,16 @@ class PairedReadProbabilityCalculator {
       int penalty_step,
       double mean_distance,
       double std_distance,
-      bool use_as_advice
+      bool use_as_advice,
+      int uncovered_threshold,
+      double uncovered_penalty
   ): read_set_(read_set), path_aligner_(read_set), //mismatch_prob_(mismatch_prob),
      insert_prob_(insert_prob), del_prob_(del_prob), subst_prob_(subst_prob),
      min_prob_start_(min_prob_start), min_prob_per_base_(min_prob_per_base),
      penalty_constant_(penalty_constant), penalty_step_(penalty_step),
      old_paths_length_(1), mean_distance_(mean_distance),
-     std_distance_(std_distance), use_as_advice_(use_as_advice) {
+     std_distance_(std_distance), use_as_advice_(use_as_advice),
+     uncovered_threshold_(uncovered_threshold), uncovered_penalty_(uncovered_penalty){
     read_probs_.resize(read_set_->size());
     total_log_prob_ = InitTotalLogProb();
 
@@ -192,7 +195,7 @@ class PairedReadProbabilityCalculator {
 
     total_reads_length_ = 0;
     for (size_t i = 0; i < read_set_->size(); i++) total_reads_length_ += read_set_->reads_1_[i].size() + read_set_->reads_2_[i].size();
-
+    uncovered_bases_count_ = 0;
 
   }
   // Call this first
@@ -208,6 +211,10 @@ class PairedReadProbabilityCalculator {
   PairedReadPathAligner path_aligner_;
   double mean_distance_;
   double std_distance_;
+
+  int uncovered_threshold_;
+  double uncovered_penalty_;
+  int uncovered_bases_count_;
 
   int GetPathsLength(const vector<Path>& paths) const;
   void RemovePathFromCache(const Path& p) {
@@ -518,6 +525,14 @@ class GlobalProbabilityCalculator {
       ss << "H: " << calc.first.GetProbHist() << endl;
     }
     return ss.str();
+  }
+
+  int GetUncoveredBasesCount() {
+    int res = 0;
+    for (auto &pc: paired_read_calculators_) {
+      res += pc.first.uncovered_bases_count_;
+    }
+    return res;
   }
 
   vector<SingleShortReadSet<>*> single_short_read_sets_;

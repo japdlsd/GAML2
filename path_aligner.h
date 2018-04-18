@@ -119,6 +119,7 @@ class PairedReadPathAligner {
   // part = 0 or 1 (0 for left, 1 for right)
   vector<SingleReadAlignment> GetPartAlignmentsForPath(const Path& p, int part);
 
+  int GetUncoveredBasesCount(const Path& p, const int threshold);
 
   void RemovePathFromCache(const Path& p) {
     left_aligner_.RemovePathFromCache(p);
@@ -140,6 +141,7 @@ class PairedReadPathAligner {
 
  private:
   unordered_map<Path, vector<PairedReadAlignment>> cache_;
+  //unordered_map<Path, int> cache_uncovered_bases_;
 
 
 };

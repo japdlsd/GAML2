@@ -201,6 +201,7 @@ void PairedReadProbabilityCalculator::EvalProbabilityChange(PairedProbabilityCha
     prob_change.added_alignments.insert(prob_change.added_alignments.end(), als.begin(), als.end());
     if (debug_output) printf("\n(added_paths) done %d/%d evals; %d alignments", (int) i+1, (int) prob_change.added_paths.size(), (int) als.size());
     if (debug_output) fflush(stdout);
+
     // @DEBUG
     for (auto &al: als) {
       if (GetAlignmentProb(al) == 0) {
@@ -233,8 +234,7 @@ double PairedReadProbabilityCalculator::GetRealReadProbability(double prob, int 
   return max(log(max(0.0, prob)), GetMinLogProbability((*read_set_)[read_id].first.size() + (*read_set_)[read_id].second.size()));
 }
 
-double PairedReadProbabilityCalculator::EvalTotalProbabilityFromChange(const PairedProbabilityChange &prob_change,
-                                                                       bool write) {
+double PairedReadProbabilityCalculator::EvalTotalProbabilityFromChange(const PairedProbabilityChange &prob_change, bool write) {
   double new_prob = total_log_prob_;
   //new_prob += log(old_paths_length_);
   //new_prob -= log(prob_change.new_paths_length);
@@ -244,6 +244,17 @@ double PairedReadProbabilityCalculator::EvalTotalProbabilityFromChange(const Pai
   new_prob -= log(2 * prob_change.new_paths_length) * read_set_->size();
 
   map<string, int> orient_stats;
+
+  int new_uncovered_bases_count = uncovered_bases_count_;
+  for (auto &p: prob_change.added_paths) {
+    new_uncovered_bases_count += path_aligner_.GetUncoveredBasesCount(p, uncovered_threshold_);
+  }
+  for (auto &p: prob_change.removed_paths) {
+    new_uncovered_bases_count -= path_aligner_.GetUncoveredBasesCount(p, uncovered_threshold_);
+  }
+
+  new_prob -= uncovered_bases_count_ * uncovered_penalty_;
+  new_prob += new_uncovered_bases_count * uncovered_penalty_;
 
   // (read_id, prob_change)
   vector< pair<int, double> > changes;
@@ -289,6 +300,10 @@ double PairedReadProbabilityCalculator::EvalTotalProbabilityFromChange(const Pai
     }
   }
   if (write) total_log_prob_ = new_prob;
+  if (write) uncovered_bases_count_ = new_uncovered_bases_count;
+
+
+  cerr << "UNCOVERED BASES COUNT: " << new_uncovered_bases_count << endl;
   cerr  << "ORIENTATION STATS GLOBAL: ";
   for (auto &o: { "FR", "RF","FF", "RR", ""}) {
     cerr << o << ": " << orient_stats[o] << " \t";
@@ -386,7 +401,9 @@ GlobalProbabilityCalculator::GlobalProbabilityCalculator(const Config& config) {
             paired_reads.penalty_step(),
             paired_reads.mean_distance(),
             paired_reads.std_distance(),
-            paired_reads.use_as_advice()
+            paired_reads.use_as_advice(),
+            paired_reads.uncovered_threshold(),
+            paired_reads.uncovered_penalty()
         ),
         paired_reads.weight()
     ));
