@@ -40,8 +40,18 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
   string move_type;
   long long total_size = prob_changes.getLength();
 
-  for (int it_num = 1; it_num <= gaml_config.num_iterations() && NOT_SIGINTED; it_num++) {
-    double T = gaml_config.t0() / log(it_num / gaml_config.n_divisor() + 1);
+  const int normal_iter_num = gaml_config.num_iterations();
+  const int finish_iter_num = gaml_config.finishing_iterations();
+  const int total_iter_num = normal_iter_num + finish_iter_num;
+
+  for (int it_num = 1; it_num <= total_iter_num && NOT_SIGINTED; it_num++) {
+    double T;
+    if (it_num <= normal_iter_num) {
+      T = gaml_config.t0() / log(it_num / gaml_config.n_divisor() + 1);
+    }
+    else {
+      T = 0;
+    }
 
     cout.precision(15);
     cout << "ITERATION: " << it_num << "\t T: " << T << "\t PROB: " << old_prob << "\t SIZE: " << total_size <<  endl;
@@ -59,7 +69,7 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
     if (new_prob > old_prob) {
       accept = true;
       cout << " better than old; ";
-    } else if (accept_high_prob) {
+    } else if (accept_high_prob && T > 0) {
       double prob = exp((new_prob - old_prob) / T);
       cerr << "(prob: " << prob << ")\t";
       uniform_real_distribution<double> dist(0.0, 1.0);

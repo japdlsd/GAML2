@@ -101,6 +101,7 @@ message Config {
     optional double n_divisor = 5 [default = 10];
 
     optional int32 num_iterations = 6 [default = 100];
+    optional int32 finishing_iterations = 14 [default = 1000];
 
     repeated SingleReadSet single_short_reads = 2;
     repeated PairedReadSet paired_reads = 7;
