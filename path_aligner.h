@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <unordered_map>
+#include <map>
 #include "read_set.h"
 #include "hash_util.h"
 #include "path.h"
@@ -118,8 +119,6 @@ class PairedReadPathAligner {
   vector<PairedReadAlignment> GetAlignmentsForPath(const Path& p);
   // part = 0 or 1 (0 for left, 1 for right)
   vector<SingleReadAlignment> GetPartAlignmentsForPath(const Path& p, int part);
-
-  int GetUncoveredBasesCount(const Path& p, const int threshold);
 
   void RemovePathFromCache(const Path& p) {
     left_aligner_.RemovePathFromCache(p);

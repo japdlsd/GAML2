@@ -1,5 +1,7 @@
+
+
 #include "path_aligner.h"
-#include <map>
+
 
 vector<SingleReadAlignment> SingleShortReadPathAlignerVector::GetAlignmentsForPath(const Path& p) {
   return GetAlignmentForPathWithCache(p);
@@ -116,44 +118,7 @@ vector<SingleReadAlignment> PairedReadPathAligner::GetPartAlignmentsForPath(cons
   }
   return ret;
 }
-int PairedReadPathAligner::GetUncoveredBasesCount(const Path &p, const int threshold) {
-  const int min_coverage = 1;
-  //auto it = cache_uncovered_bases_.find(p);
-  //if (it != cache_uncovered_bases_.end()) return it->second;
 
-  auto als = GetAlignmentsForPath(p);
-  vector<int> pref_covered(p.GetLength() + 1, 0);
-
-  const auto read_length_1 = (int)paired_read_set_->reads_1_[0].size();
-  const auto read_length_2 = (int)paired_read_set_->reads_2_[0].size();
-
-
-  for (auto &al: als) {
-    const int b1 = al.al1.genome_pos, b2 = al.al2.genome_pos;
-    const int e1 = b1 + read_length_1, e2 = b2 + read_length_2;
-
-    const int start = min(b1, b2) + threshold;
-    const int finish = max(e1, e2) - threshold;
-    if (start > finish) continue;
-    pref_covered[start] += 1;
-    pref_covered[finish] -= 1;
-  }
-
-  vector<int> coverage(p.GetLength(), 0);
-  int acc = 0;
-  for (unsigned long i = 0; i < coverage.size(); i++) {
-    acc += pref_covered[i];
-    coverage[i] = acc;
-  }
-  int res = 0;
-  for (int i = threshold; i < (int)coverage.size() - threshold; i++) {
-    if (coverage[i] < min_coverage) {
-      res += 1;
-    }
-  }
-
-  return res;
-}
 vector<SingleReadAlignment> HICReadPathAligner::GetPartAlignmentsForPath(const Path &p, int part) {
   vector<SingleReadAlignment> ret;
   if (part == 0) {

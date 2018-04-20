@@ -128,8 +128,8 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
   const int start_path_id = rand() % (int)paths.size();
   const Path& start_path = paths[start_path_id];
 
-  //cerr << "start_path_id: " << start_path_id << endl;
-  //cerr << "start_path: " << start_path.ToDebugString() << endl;
+  cerr << "start_path_id: " << start_path_id << endl;
+  cerr << "start_path: " << start_path.ToDebugString() << endl;
 
   // exclude nondisjoint paths
   vector<int> disjoint_path_ids;
@@ -144,9 +144,9 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
   };
   if (disjoint_path_ids.empty()) return false;
 
-  //cerr << "Disjoint path ids:";
-  //for (int i: disjoint_path_ids) cerr << " " << i;
-  //cerr << endl;
+  cerr << "Disjoint path ids:";
+  for (int i: disjoint_path_ids) cerr << " " << i;
+  cerr << endl;
 
   // align paired reads to the start path
   vector<SingleReadAlignment> start_left_alignments = pc.path_aligner_.GetPartAlignmentsForPath(start_path, 0);
@@ -173,25 +173,27 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
     als2 = pc.path_aligner_.GetPartAlignmentsForPath(p, 1);
 
     for (auto al1: als1) {
-      auto it = start_left_count.find(al1.read_id);
-      if (it != start_left_count.end()) {
+      auto it = start_right_count.find(al1.read_id);
+      if (it != start_right_count.end()) {
         path_score[i] += it->second;
       }
     }
     for (auto al2: als2) {
-      auto it = start_right_count.find(al2.read_id);
-      if (it != start_right_count.end()) {
+      auto it = start_left_count.find(al2.read_id);
+      if (it != start_left_count.end()) {
         path_score[i] += it->second;
       }
     }
   }
 
+  cerr << "DISJOINT PATHS WITH SCORES:" << endl;
+  for (int path_id: disjoint_path_ids) {
+    if (path_score[path_id] > 0)  cerr << path_score[path_id] << "\t!! " << paths[path_id].ToDebugString() << endl;
+    else cerr << "-\t   " << paths[path_id].ToDebugString() << endl;
+  }
 
-  //cerr << "DISJOINT PATHS WITH SCORES:" << endl;
-  //for (int path_id: disjoint_path_ids) {
-  //  if (path_score[path_id] > 0)  cerr << path_score[path_id] << "\t!! " << paths[path_id].ToDebugString() << endl;
-  //  else cerr << "-\t   " << paths[path_id].ToDebugString() << endl;
-  //}
+  cerr << "PATH SCORES:" << endl;
+  for (auto x: path_score) cerr << x << "\t"; cerr << endl;
 
   // choose randomly (based on score) the walk to join (with the orientation and complementarity)
   const int target_path_id = chooseWeightedRandomly(path_score);
@@ -411,14 +413,14 @@ bool JoinWithAdviceHic(const vector<Path>& paths, vector<Path>& out_paths,
     als2 = pc.path_aligner_.GetPartAlignmentsForPath(p, 1);
 
     for (auto al1: als1) {
-      auto it = start_left_count.find(al1.read_id);
-      if (it != start_left_count.end()) {
+      auto it = start_right_count.find(al1.read_id);
+      if (it != start_right_count.end()) {
         path_score[i] += it->second;
       }
     }
     for (auto al2: als2) {
-      auto it = start_right_count.find(al2.read_id);
-      if (it != start_right_count.end()) {
+      auto it = start_left_count.find(al2.read_id);
+      if (it != start_left_count.end()) {
         path_score[i] += it->second;
       }
     }
@@ -796,19 +798,17 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
     a = truncateSmallNodes(a, config.big_node_threshold);
     b = truncateSmallNodes(b, config.big_node_threshold);
 
-    if (!a.empty()) add.emplace_back(a, p2.history_ + "U");
-    if (!b.empty()) add.emplace_back(b, p2.history_ + "U");
+    if (!a.empty()) add.emplace_back(a, p2.history_ + PATH_UNTANGLE);
+    if (!b.empty()) add.emplace_back(b, p2.history_ + PATH_UNTANGLE);
     add.push_back(p1);
 
     added_paths.push_back(add);
-    // debug
-    if (0){
-      cerr << "added paths: " << endl;
-      for (auto &p: add) {
-        cerr << p.ToDebugString() << endl;
-      }
-    }
-    //removed_paths.push_back(remove);
+
+    // aggressive mode: remove cut paths
+    //add.clear();
+    //add.push_back(p1);
+    //added_paths.push_back(add);
+
   }
 
   for (int i = 0; i < 2; i++){
@@ -828,19 +828,14 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
     vector<Node*> c(p1.nodes_.begin() + (p1_start_pos + be.second), p1.nodes_.end());
     c = truncateSmallNodes(c, config.big_node_threshold);
 
-    if (!a.empty()) add.emplace_back(a, p1.history_ + "U");
-    if (!b.empty()) add.emplace_back(b, p2.history_ + "U");
-    if (!c.empty()) add.emplace_back(c, p2.history_ + "U");
+    if (!a.empty()) add.emplace_back(a, p1.history_ + PATH_UNTANGLE);
+    if (!b.empty()) add.emplace_back(b, p2.history_ + PATH_UNTANGLE);
+    if (!c.empty()) add.emplace_back(c, p2.history_ + PATH_UNTANGLE);
 
     added_paths.push_back(add);
-    // debug
-    if (0){
-      cerr << "added paths: " << endl;
-      for (auto &p: add) {
-        cerr << p.ToDebugString() << endl;
-      }
-    }
-    //removed_paths.push_back(remove);
+    // aggressive mode: remove the rest
+    //add.clear();
+    //if (!a.empty()) add.emplace_back(a, p1.history_ + PATH_UNTANGLE);
   }
   {
     // switch first end with second and vice versa
@@ -855,22 +850,11 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
     b.insert(b.end(), p1.nodes_.begin() + (p1_start_pos + be.second), p1.nodes_.end());
     b = truncateSmallNodes(b, config.big_node_threshold);
 
-    if (!a.empty()) add.emplace_back(a, p1.history_ + "U");
-    if (!b.empty()) add.emplace_back(b, p2.history_ + "U");
-    //remove.push_back(p1);
-    //remove.push_back(p1_label);
-    //remove.push_back(p2);
-    //remove.push_back(p2_label);
+    if (!a.empty()) add.emplace_back(a, p1.history_ + PATH_UNTANGLE);
+    if (!b.empty()) add.emplace_back(b, p2.history_ + PATH_UNTANGLE);
 
     added_paths.push_back(add);
-    // debug
-    if (0){
-      cerr << "added paths: " << endl;
-      for (auto &p: add) {
-        cerr << p.ToDebugString() << endl;
-      }
-    }
-    //removed_paths.push_back(remove);
+
   }
 
   // debug

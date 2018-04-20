@@ -247,10 +247,10 @@ double PairedReadProbabilityCalculator::EvalTotalProbabilityFromChange(const Pai
 
   int new_uncovered_bases_count = uncovered_bases_count_;
   for (auto &p: prob_change.added_paths) {
-    new_uncovered_bases_count += path_aligner_.GetUncoveredBasesCount(p, uncovered_threshold_);
+    new_uncovered_bases_count += GetUncoveredBasesCount(p);
   }
   for (auto &p: prob_change.removed_paths) {
-    new_uncovered_bases_count -= path_aligner_.GetUncoveredBasesCount(p, uncovered_threshold_);
+    new_uncovered_bases_count -= GetUncoveredBasesCount(p);
   }
 
   new_prob -= uncovered_bases_count_ * uncovered_penalty_;
@@ -358,6 +358,49 @@ int PairedReadProbabilityCalculator::GetUnalignedReadsCount() {
   }
   return res;
 }
+
+int PairedReadProbabilityCalculator::GetUncoveredBasesCount(const Path& p) {
+  const int min_coverage = 1;
+  //auto it = cache_uncovered_bases_.find(p);
+  //if (it != cache_uncovered_bases_.end()) return it->second;
+
+  auto als = path_aligner_.GetAlignmentsForPath(p);
+  vector<int> pref_covered(p.GetLength() + 1, 0);
+
+  const auto read_length_1 = (int)read_set_->reads_1_[0].size();
+  const auto read_length_2 = (int)read_set_->reads_2_[0].size();
+
+
+  for (auto &al: als) {
+    const double al_prob = GetAlignmentProb(al);
+    if (al_prob <= GetMinLogProbability(read_length_1 + read_length_2)) continue;
+    const int b1 = al.al1.genome_pos, b2 = al.al2.genome_pos;
+    const int e1 = b1 + read_length_1, e2 = b2 + read_length_2;
+
+    const int start = min(b1, b2) + uncovered_threshold_;
+    const int finish = max(e1, e2) - uncovered_threshold_;
+    if (start > finish) continue;
+    pref_covered[start] += 1;
+    pref_covered[finish] -= 1;
+  }
+
+  vector<int> coverage(p.GetLength(), 0);
+  int acc = 0;
+  for (unsigned long i = 0; i < coverage.size(); i++) {
+    acc += pref_covered[i];
+    coverage[i] = acc;
+  }
+  int res = 0;
+  for (int i = uncovered_start_ignore_; i < (int)coverage.size() - uncovered_start_ignore_; i++) {
+    if (coverage[i] < min_coverage) {
+      res += 1;
+    }
+  }
+
+  return res;
+}
+
+
 int PairedReadProbabilityCalculator::GetCompletelyUnalignedReadsCount() {
   int res = 0;
   for (int i = 0; i < read_set_->size(); i++) {
@@ -403,7 +446,8 @@ GlobalProbabilityCalculator::GlobalProbabilityCalculator(const Config& config) {
             paired_reads.std_distance(),
             paired_reads.use_as_advice(),
             paired_reads.uncovered_threshold(),
-            paired_reads.uncovered_penalty()
+            paired_reads.uncovered_penalty(),
+            paired_reads.uncovered_start_ignore()
         ),
         paired_reads.weight()
     ));
