@@ -44,6 +44,7 @@ message PairedReadSet {
 
     // after logarithmising
     optional int32 uncovered_threshold = 16 [default = 50];
+    optional int32 uncovered_start_ignore = 17 [default = 70];
     optional double uncovered_penalty = 15 [default = -0.7];
 }
 

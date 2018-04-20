@@ -1,7 +1,9 @@
 #ifndef READ_PROBABILITY_CALCULATOR_H__
 #define READ_PROBABILITY_CALCULATOR_H__
 
+#include <map>
 #include "path_aligner.h"
+
 #include "config.pb.h"
 
 struct SingleProbabilityChange {
@@ -178,14 +180,16 @@ class PairedReadProbabilityCalculator {
       double std_distance,
       bool use_as_advice,
       int uncovered_threshold,
-      double uncovered_penalty
+      double uncovered_penalty,
+      int uncovered_start_ignore
   ): read_set_(read_set), path_aligner_(read_set), //mismatch_prob_(mismatch_prob),
      insert_prob_(insert_prob), del_prob_(del_prob), subst_prob_(subst_prob),
      min_prob_start_(min_prob_start), min_prob_per_base_(min_prob_per_base),
      penalty_constant_(penalty_constant), penalty_step_(penalty_step),
      old_paths_length_(1), mean_distance_(mean_distance),
      std_distance_(std_distance), use_as_advice_(use_as_advice),
-     uncovered_threshold_(uncovered_threshold), uncovered_penalty_(uncovered_penalty){
+     uncovered_threshold_(uncovered_threshold), uncovered_penalty_(uncovered_penalty),
+     uncovered_start_ignore_(uncovered_start_ignore){
     read_probs_.resize(read_set_->size());
     total_log_prob_ = InitTotalLogProb();
 
@@ -215,6 +219,7 @@ class PairedReadProbabilityCalculator {
   int uncovered_threshold_;
   double uncovered_penalty_;
   int uncovered_bases_count_;
+  int uncovered_start_ignore_;
 
   int GetPathsLength(const vector<Path>& paths) const;
   void RemovePathFromCache(const Path& p) {
@@ -276,6 +281,10 @@ class PairedReadProbabilityCalculator {
   }
 
   int GetCompletelyUnalignedReadsCount();
+
+  int GetUncoveredBasesCount(const Path& p);
+
+  double GetAlignmentProb(const PairedReadAlignment& al) const;
  private:
 
   // Evals change with filled added and removed paths
@@ -289,8 +298,6 @@ class PairedReadProbabilityCalculator {
 
   // max(min_prob, prob)
   double GetRealReadProbability(double prob, int read_id) const;
-
-  double GetAlignmentProb(const PairedReadAlignment& al) const;
 
   ShortPairedReadSet<>* read_set_;
   //double mismatch_prob_;
