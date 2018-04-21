@@ -447,7 +447,8 @@ GlobalProbabilityCalculator::GlobalProbabilityCalculator(const Config& config) {
             paired_reads.use_as_advice(),
             paired_reads.uncovered_threshold(),
             paired_reads.uncovered_penalty(),
-            paired_reads.uncovered_start_ignore()
+            paired_reads.uncovered_start_ignore(),
+            paired_reads.lower_bound_advice_count()
         ),
         paired_reads.weight()
     ));
@@ -469,7 +470,8 @@ GlobalProbabilityCalculator::GlobalProbabilityCalculator(const Config& config) {
             hic_reads.min_prob_per_base(),
             hic_reads.penalty_constant(),
             hic_reads.penalty_step(),
-            hic_reads.use_as_advice()
+            hic_reads.use_as_advice(),
+            hic_reads.lower_bound_advice_count()
         ),
         hic_reads.weight()
     ));

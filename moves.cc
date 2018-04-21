@@ -185,6 +185,9 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
       }
     }
   }
+  for (auto &x: path_score) {
+    if (x < pc.lower_bound_advice_count_) x = 0;
+  }
 
   cerr << "DISJOINT PATHS WITH SCORES:" << endl;
   for (int path_id: disjoint_path_ids) {
@@ -197,9 +200,10 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
 
   // choose randomly (based on score) the walk to join (with the orientation and complementarity)
   const int target_path_id = chooseWeightedRandomly(path_score);
+  cerr << "Chosen target path: " << target_path_id;
   if (target_path_id == -1) return false;
   const Path& target_path = paths[target_path_id];
-  //cerr << "Chosen target path: " << target_path_id << " :: " << target_path.ToDebugString() << endl;
+  cerr << " :: " << target_path.ToDebugString() << endl;
 
   // sample (randomly) possible connections
   // choose the best
@@ -253,7 +257,7 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
 
   // @TODO add to the config
   const int SAMPLE_NUM = 300;
-  const int MAX_CONN_LENGTH = disjoint_length * 2; // bases, not nodes
+  const int MAX_CONN_LENGTH = disjoint_length * 3; // bases, not nodes
 
   if (!first_pool_ids.empty()) {
     unordered_set<int> desired_targets({yb->id_, yer->id_});
@@ -425,6 +429,9 @@ bool JoinWithAdviceHic(const vector<Path>& paths, vector<Path>& out_paths,
       }
     }
   }
+  for (auto &x: path_score) {
+    if (x < pc.lower_bound_advice_count_) x = 0;
+  }
 
 
   //cerr << "DISJOINT PATHS WITH SCORES:" << endl;
@@ -491,7 +498,7 @@ bool JoinWithAdviceHic(const vector<Path>& paths, vector<Path>& out_paths,
 
   // @TODO add to the config
   const int SAMPLE_NUM = 300;
-  const int MAX_CONN_LENGTH = disjoint_length * 2; // bases, not nodes
+  const int MAX_CONN_LENGTH = disjoint_length * 3; // bases, not nodes
 
   if (!first_pool_ids.empty()) {
     unordered_set<int> desired_targets({yb->id_, yer->id_});
@@ -694,34 +701,33 @@ vector<Node*> truncateSmallNodes(const vector<Node*>& nodes, const int big_node_
   return res;
 }
 
-bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator) {
+bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator, bool aggressive=false) {
   //cerr << "UntangleCrossedPaths()" << endl;
   if (paths.size() < 2) return false;
 
   // find nodes that are in more than one path
 
   // node_id, [path_id, pos]
-  static unordered_map<int, vector<pair<int,int>> > paths_by_nodes;
+  static unordered_map<int, vector<pair<int, int>>> paths_by_nodes;
   paths_by_nodes.clear();
 
-  for (int i = 0; i < (int)paths.size(); i++) {
+  for (int i = 0; i < (int) paths.size(); i++) {
     const auto &p = paths[i];
-    for (int j = 0; j < (int)p.nodes_.size(); j++) {
+    for (int j = 0; j < (int) p.nodes_.size(); j++) {
       auto n = p.nodes_[j];
       if (n->str_.size() < 50) continue; // we look only at decently big nodes
       if (n->id_ > n->rc_->id_) n = n->rc_;
       const int id = n->id_;
       if (paths_by_nodes.count(id) == 0) {
-        paths_by_nodes[id] = vector<pair<int,int>>({make_pair(i, j)});
-      }
-      else {
+        paths_by_nodes[id] = vector<pair<int, int>>({make_pair(i, j)});
+      } else {
         paths_by_nodes[id].emplace_back(i, j);
       }
     }
   }
 
   // debug
-  if (0){
+  if (0) {
     cerr << "PATHS BY NODES: " << endl;
     for (auto n: paths_by_nodes) {
       cerr << n.first << ": ";
@@ -749,18 +755,18 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
 
   if (candidate_nodes.empty()) return false;
   // debug
-  if (0){
+  if (0) {
     cerr << "CANDIDATE NODES: " << endl;
     for (auto x: candidate_nodes) cerr << x << " ";
     cerr << endl;
   }
 
-  const int r_pos = rand()%(int)candidate_nodes.size();
+  const int r_pos = rand() % (int) candidate_nodes.size();
   const int inter_node_id = candidate_nodes[r_pos];
   vector<int> inter_paths(candidate_paths[r_pos].begin(), candidate_paths[r_pos].end());
-  const int r1_pos = rand()%(int)inter_paths.size();
+  const int r1_pos = rand() % (int) inter_paths.size();
   swap(inter_paths[0], inter_paths[r1_pos]);
-  const int r2_pos = 1 + rand()%((int)(inter_paths).size() - 1);
+  const int r2_pos = 1 + rand() % ((int) (inter_paths).size() - 1);
   swap(inter_paths[1], inter_paths[r2_pos]);
 
   const int p1_id = inter_paths[0];
@@ -786,15 +792,15 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
   // create new hypothesis
   vector<vector<Path>> added_paths;
 
-  for (int i = 0; i < 2; i++){
+  for (int i = 0; i < 2; i++) {
     // cut the second, keep the first
     swap(p1, p2);
     swap(p1_start_pos, p2_start_pos);
     swap(p1_label, p2_label);
     vector<Path> add;
 
-    vector<Node*> a(p2.nodes_.begin(), p2.nodes_.begin() + (p2_start_pos - be.first + 1));
-    vector<Node*> b(p2.nodes_.begin() + (p2_start_pos + be.second), p2.nodes_.end());
+    vector<Node *> a(p2.nodes_.begin(), p2.nodes_.begin() + (p2_start_pos - be.first + 1));
+    vector<Node *> b(p2.nodes_.begin() + (p2_start_pos + be.second), p2.nodes_.end());
     a = truncateSmallNodes(a, config.big_node_threshold);
     b = truncateSmallNodes(b, config.big_node_threshold);
 
@@ -805,13 +811,14 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
     added_paths.push_back(add);
 
     // aggressive mode: remove cut paths
-    //add.clear();
-    //add.push_back(p1);
-    //added_paths.push_back(add);
-
+    if (aggressive) {
+      add.clear();
+      add.push_back(p1);
+      added_paths.push_back(add);
+    }
   }
 
-  for (int i = 0; i < 2; i++){
+  for (int i = 0; i < 2; i++) {
     swap(p1, p2);
     swap(p1_start_pos, p2_start_pos);
     swap(p1_label, p2_label);
@@ -819,13 +826,13 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
     vector<Path> add;
     //vector<int> remove;
 
-    vector<Node*> a(p1.nodes_.begin(), p1.nodes_.begin() + (p1_start_pos + be.second));
+    vector<Node *> a(p1.nodes_.begin(), p1.nodes_.begin() + (p1_start_pos + be.second));
     a.insert(a.end(), p2.nodes_.begin() + (p2_start_pos + be.second), p2.nodes_.end());
     a = truncateSmallNodes(a, config.big_node_threshold);
 
-    vector<Node*> b(p2.nodes_.begin(), p2.nodes_.begin() + (p2_start_pos - be.first + 1));
+    vector<Node *> b(p2.nodes_.begin(), p2.nodes_.begin() + (p2_start_pos - be.first + 1));
     b = truncateSmallNodes(b, config.big_node_threshold);
-    vector<Node*> c(p1.nodes_.begin() + (p1_start_pos + be.second), p1.nodes_.end());
+    vector<Node *> c(p1.nodes_.begin() + (p1_start_pos + be.second), p1.nodes_.end());
     c = truncateSmallNodes(c, config.big_node_threshold);
 
     if (!a.empty()) add.emplace_back(a, p1.history_ + PATH_UNTANGLE);
@@ -834,19 +841,21 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
 
     added_paths.push_back(add);
     // aggressive mode: remove the rest
-    //add.clear();
-    //if (!a.empty()) add.emplace_back(a, p1.history_ + PATH_UNTANGLE);
+    if (aggressive) {
+      add.clear();
+      if (!a.empty()) add.emplace_back(a, p1.history_ + PATH_UNTANGLE);
+    }
   }
   {
     // switch first end with second and vice versa
     vector<Path> add;
     //vector<int> remove;
 
-    vector<Node*> a(p1.nodes_.begin(), p1.nodes_.begin() + (p1_start_pos + be.second));
+    vector<Node *> a(p1.nodes_.begin(), p1.nodes_.begin() + (p1_start_pos + be.second));
     a.insert(a.end(), p2.nodes_.begin() + (p2_start_pos + be.second), p2.nodes_.end());
     a = truncateSmallNodes(a, config.big_node_threshold);
 
-    vector<Node*> b(p2.nodes_.begin(), p2.nodes_.begin() + (p2_start_pos + be.second));
+    vector<Node *> b(p2.nodes_.begin(), p2.nodes_.begin() + (p2_start_pos + be.second));
     b.insert(b.end(), p1.nodes_.begin() + (p1_start_pos + be.second), p1.nodes_.end());
     b = truncateSmallNodes(b, config.big_node_threshold);
 
@@ -858,12 +867,12 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
   }
 
   // debug
-  if (0){
-    for (int k = 0; k < (int)added_paths.size(); k++) {
+  if (0) {
+    for (int k = 0; k < (int) added_paths.size(); k++) {
       // debug
       {
         cerr << "added_paths: " << k << endl;
-        for (int i = 0; i < (int)added_paths[k].size(); i++) {
+        for (int i = 0; i < (int) added_paths[k].size(); i++) {
           cerr << added_paths[k][i].ToDebugString() << endl;
         }
       }
@@ -878,7 +887,7 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
   new_paths.pop_back();
   */
   vector<Path> new_paths;
-  new_paths.reserve(paths.size()+1);
+  new_paths.reserve(paths.size() + 1);
   for (auto &p: paths) {
     if (!p.IsSame(p1) && !p.IsSame(p2)) new_paths.push_back(p);
   }
@@ -889,74 +898,84 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
   //cerr << "new_paths.size(): " << new_paths.size() << "; paths.size(): " << paths.size() << endl;
   //assert(new_paths.size() + 2 == paths.size()); <- it doesn't have to hold
 
-  double best_prob = -100000000;
-  int best_k = 0;
+  if (aggressive) {
+    auto random_k = rand() % added_paths.size();
+    new_paths.insert(new_paths.end(), added_paths[random_k].begin(), added_paths[random_k].end());
+    out_paths = new_paths;
+  }
+  else {
+    double best_prob = -100000000;
+    int best_k = 0;
 
-  const auto other_paths_size = new_paths.size();
+    const auto other_paths_size = new_paths.size();
 
-  for (int k = 0; k < (int)added_paths.size(); k++) {
-    new_paths.resize(other_paths_size);
-    new_paths.insert(new_paths.end(), added_paths[k].begin(), added_paths[k].end());
-    // debug
-    if (0){
-      cerr << "added_paths: \n";
-      for (int i = 0; i < (int)added_paths[k].size(); i++) {
-        cerr << added_paths[k][i].ToDebugString() << endl;
+    for (int k = 0; k < (int) added_paths.size(); k++) {
+      new_paths.resize(other_paths_size);
+      new_paths.insert(new_paths.end(), added_paths[k].begin(), added_paths[k].end());
+      // debug
+      if (0) {
+        cerr << "added_paths: \n";
+        for (int i = 0; i < (int) added_paths[k].size(); i++) {
+          cerr << added_paths[k][i].ToDebugString() << endl;
+        }
+      }
+      ProbabilityChanges pp_global;
+      double prob = probability_calculator.GetPathsProbability(new_paths, pp_global);
+      if (prob > best_prob) {
+        best_prob = prob;
+        best_k = k;
       }
     }
-    ProbabilityChanges pp_global;
-    double prob = probability_calculator.GetPathsProbability(new_paths, pp_global);
-    if (prob > best_prob) {
-      best_prob = prob;
-      best_k = k;
+
+    for (int k = 0; k < (int) added_paths.size(); k++) {
+      if (k != best_k) probability_calculator.RemovePathsFromCache(added_paths[k]);
     }
-  }
 
-  for (int k = 0; k < (int)added_paths.size(); k++) {
-    if (k != best_k) probability_calculator.RemovePathsFromCache(added_paths[k]);
-  }
+    const int removed_paths_length = (int) p1.GetLength() + (int) p2.GetLength();
+    int added_paths_length = 0;
+    for (auto &p: added_paths[best_k]) added_paths_length += p.GetLength();
 
-  const int removed_paths_length = (int)p1.GetLength() + (int)p2.GetLength();
-  int added_paths_length = 0;
-  for (auto &p: added_paths[best_k]) added_paths_length += p.GetLength();
+    if (0) {
+      cerr << "removed paths: \n";
+      cerr << "[L:" << p1.GetLength() << "]\t" << p1.ToDebugString() << endl;
+      cerr << "[L:" << p2.GetLength() << "]\t" << p2.ToDebugString() << endl;
 
-  if (0){
-    cerr << "removed paths: \n";
-    cerr << "[L:" << p1.GetLength() << "]\t" << p1.ToDebugString() << endl;
-    cerr << "[L:" << p2.GetLength() << "]\t" << p2.ToDebugString() << endl;
-
-    cerr << "best added_paths: \n";
-    for (int i = 0; i < (int)added_paths[best_k].size(); i++) {
-      cerr << "[L:" << added_paths[best_k][i].GetLength() << "]\t" << added_paths[best_k][i].ToDebugString() << endl;
+      cerr << "best added_paths: \n";
+      for (int i = 0; i < (int) added_paths[best_k].size(); i++) {
+        cerr << "[L:" << added_paths[best_k][i].GetLength() << "]\t" << added_paths[best_k][i].ToDebugString() << endl;
+      }
     }
+
+    //assert(removed_paths_length >= added_paths_length - 2 * (p1[0]->graph_->k_ - 1));
+
+    new_paths.resize(other_paths_size);
+    new_paths.insert(new_paths.end(), added_paths[best_k].begin(), added_paths[best_k].end());
+    out_paths = new_paths;
   }
-
-  //assert(removed_paths_length >= added_paths_length - 2 * (p1[0]->graph_->k_ - 1));
-
-  new_paths.resize(other_paths_size);
-  new_paths.insert(new_paths.end(), added_paths[best_k].begin(), added_paths[best_k].end());
-  out_paths = new_paths;
   return true;
 }
 
 string MakeMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator,
               bool& accept_higher_prob) {
+  // @TODO add probs of moves into config
+  vector<int> ratios = {5, 5, 20, 20};
+
+  int move_type = 0;
   while (true) {
     out_paths.clear();
-    pair<bool, string> res = TryMove(paths, out_paths, config, probability_calculator, accept_higher_prob);
+    pair<bool, string> res = TryMove(paths, out_paths, config, probability_calculator, accept_higher_prob, ratios, move_type);
     if (res.first) {
       return res.second;
+    }
+    else {
+      if (ratios[move_type] > 1) ratios[move_type] -= 1;
     }
   }
 }
 
 pair<bool, string> TryMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator,
-             bool& accept_higher_prob) {
-  // @TODO add probs of moves into config
-
-  vector<int> ratios = {5, 5, 40, 10};
-
-  const int move_type = chooseWeightedRandomly(ratios);
+             bool& accept_higher_prob, vector<int>& ratios, int& move_type) {
+  move_type = chooseWeightedRandomly(ratios);
 
   if (move_type == 0) {
     accept_higher_prob = false;

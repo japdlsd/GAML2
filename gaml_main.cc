@@ -17,6 +17,38 @@ void signalHandler(int signum) {
   NOT_SIGINTED = false;
 }
 
+void DisconnectPoorlyConnectedPaths(GlobalProbabilityCalculator& pc, const Config& gaml_config, vector<Path>& paths, ofstream& iter_log, int start_iter) {
+  MoveConfig move_conf;
+  ProbabilityChanges prob_changes;
+  double old_prob = pc.GetPathsProbability(paths, prob_changes);
+  auto total_size = prob_changes.getLength();
+  vector<Path> out_paths;
+  for (int it_num = 1; it_num <= gaml_config.postprocessing_break_iter_num(); it_num++) {
+    out_paths.clear();
+
+    int move_type = rand() % 2;
+    if (move_type == 0) {
+      BreakPaths(paths, out_paths, move_conf);
+    }
+    else {
+      UntangleCrossedPaths(paths, out_paths, move_conf, pc, true);
+    }
+    double new_prob = pc.GetPathsProbability(out_paths, prob_changes);
+
+    if (old_prob - new_prob < gaml_config.postprocessing_break_threshold()) {
+      pc.CommitProbabilityChanges(prob_changes);
+      paths = out_paths;
+      old_prob = new_prob;
+      total_size = prob_changes.getLength();
+    }
+
+    {
+      iter_log << it_num + start_iter <<"," << old_prob << "," << total_size << "," << pc.GetUncoveredBasesCount()
+               <<  "," << paths.size() << ", \'" << (move_type == 0 ? PATH_BREAK : PATH_UNTANGLE) << "\'," << 0 << "," << pc.GetUnalignedReadsLog() << endl;
+    }
+  }
+}
+
 void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
                          const Config& gaml_config, vector<Path>& paths) {
   // @TODO add random seed to config? (i14)
@@ -44,7 +76,8 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
   const int finish_iter_num = gaml_config.finishing_iterations();
   const int total_iter_num = normal_iter_num + finish_iter_num;
 
-  for (int it_num = 1; it_num <= total_iter_num && NOT_SIGINTED; it_num++) {
+  int it_num;
+  for (it_num = 1; it_num <= total_iter_num && NOT_SIGINTED; it_num++) {
     double T;
     if (it_num <= normal_iter_num) {
       T = gaml_config.t0() / log(it_num / gaml_config.n_divisor() + 1);
@@ -133,6 +166,8 @@ void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
       iter_log << it_num <<"," << old_prob << "," << total_size << "," << probability_calculator.GetUncoveredBasesCount() <<  "," << paths.size() << ", \'" << move_type << "\'," << T << "," << probability_calculator.GetUnalignedReadsLog() << endl;
     }
   }
+
+  DisconnectPoorlyConnectedPaths(probability_calculator, gaml_config, paths, iter_log, it_num);
 
   // final output
   ofstream of(gaml_config.output_file());

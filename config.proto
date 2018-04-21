@@ -42,6 +42,8 @@ message PairedReadSet {
     // If set then we use this read set as advice during walk extending.
     optional bool use_as_advice = 11 [default = false];
 
+    optional int32 lower_bound_advice_count = 18 [default = 10];
+
     // after logarithmising
     optional int32 uncovered_threshold = 16 [default = 50];
     optional int32 uncovered_start_ignore = 17 [default = 70];
@@ -54,7 +56,7 @@ message HiCReadSet {
     // filename is relative to executing directory (fastq file)
     required string filename2 = 8;
     // bins to eval distribution of insert sizes (bucket sizes)
-    optional int32 binsize = 9 [default = 1000];
+    optional int32 binsize = 9 [default = 500];
 
     optional string orientation = 12 [default = "FR"];
     // @DEPRECATED optional double mismatch_prob = 15 [default = 0.05];
@@ -79,6 +81,7 @@ message HiCReadSet {
     optional double weight = 7 [default = 1];
     // If set then we use this read set as advice during walk extending.
     optional bool use_as_advice = 11 [default = true];
+    optional int32 lower_bound_advice_count = 16 [default = 10];
 }
 
 message Config {
@@ -102,6 +105,8 @@ message Config {
 
     optional int32 num_iterations = 6 [default = 100];
     optional int32 finishing_iterations = 14 [default = 1000];
+    optional double postprocessing_break_threshold = 15 [default = 0.0001];
+    optional int32 postprocessing_break_iter_num = 16 [default = 1000];
 
     repeated SingleReadSet single_short_reads = 2;
     repeated PairedReadSet paired_reads = 7;
