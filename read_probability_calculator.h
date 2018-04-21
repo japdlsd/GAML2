@@ -181,7 +181,8 @@ class PairedReadProbabilityCalculator {
       bool use_as_advice,
       int uncovered_threshold,
       double uncovered_penalty,
-      int uncovered_start_ignore
+      int uncovered_start_ignore,
+      int lower_bound_advice_count
   ): read_set_(read_set), path_aligner_(read_set), //mismatch_prob_(mismatch_prob),
      insert_prob_(insert_prob), del_prob_(del_prob), subst_prob_(subst_prob),
      min_prob_start_(min_prob_start), min_prob_per_base_(min_prob_per_base),
@@ -189,7 +190,8 @@ class PairedReadProbabilityCalculator {
      old_paths_length_(1), mean_distance_(mean_distance),
      std_distance_(std_distance), use_as_advice_(use_as_advice),
      uncovered_threshold_(uncovered_threshold), uncovered_penalty_(uncovered_penalty),
-     uncovered_start_ignore_(uncovered_start_ignore){
+     uncovered_start_ignore_(uncovered_start_ignore),
+     lower_bound_advice_count_(lower_bound_advice_count){
     read_probs_.resize(read_set_->size());
     total_log_prob_ = InitTotalLogProb();
 
@@ -220,6 +222,7 @@ class PairedReadProbabilityCalculator {
   double uncovered_penalty_;
   int uncovered_bases_count_;
   int uncovered_start_ignore_;
+  int lower_bound_advice_count_;
 
   int GetPathsLength(const vector<Path>& paths) const;
   void RemovePathFromCache(const Path& p) {
@@ -337,13 +340,15 @@ class HICReadProbabilityCalculator {
       double min_prob_per_base,
       double penalty_constant,
       int penalty_step,
-      bool use_as_advice
+      bool use_as_advice,
+      int lower_bound_advice_count
   ): read_set_(read_set), path_aligner_(HICReadPathAligner(read_set, binsize)), //mismatch_prob_(mismatch_prob),
      insert_prob_(insert_prob), del_prob_(del_prob), subst_prob_(subst_prob),
      translocation_prob_(translocation_prob),
      min_prob_start_(min_prob_start), min_prob_per_base_(min_prob_per_base),
      penalty_constant_(penalty_constant), penalty_step_(penalty_step),
-     old_paths_length_(1), binsize_(binsize), use_as_advice_(use_as_advice) {
+     old_paths_length_(1), binsize_(binsize), use_as_advice_(use_as_advice),
+     lower_bound_advice_count_(lower_bound_advice_count){
     //read_probs_.resize(read_set_->size());
     read_cis_phis_.resize(read_set_->size());
     read_trans_psis_.resize(read_set_->size());
@@ -434,6 +439,8 @@ class HICReadProbabilityCalculator {
     }
     return ss.str();
   }
+
+  int lower_bound_advice_count_;
 
  private:
 

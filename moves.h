@@ -17,7 +17,14 @@ class MoveConfig {
     {}
 };
 
-string MakeMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator, bool& accept_higher_prob);
-pair<bool, string> TryMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator, bool& accept_higher_prob);
+string MakeMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config,
+                GlobalProbabilityCalculator& probability_calculator, bool& accept_higher_prob);
+pair<bool, string> TryMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config,
+                           GlobalProbabilityCalculator& probability_calculator, bool& accept_higher_prob, vector<int>& ratios, int& move_type);
+
+bool BreakPaths(const vector<Path>& paths, vector<Path>& out_paths,
+                const MoveConfig& config);
+
+bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator, bool aggressive);
 
 #endif
