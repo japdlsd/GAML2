@@ -182,6 +182,8 @@ double HICReadPathAligner::eval_lambda(const Path &p) {
       while (it1 != als1.end() && it1->read_id < it2->read_id) it1++;
     }
   }
+
+  if (res != 0) res = 1.00/res; // lambda is equal to 1 over the mean value
   lambda_cache_[p] = res;
   return res;
 }
