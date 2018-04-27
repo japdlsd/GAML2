@@ -828,7 +828,7 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
   }
 
   // eval new cis weighting constant
-  double new_cis_constant_ = (1.00 - translocation_prob_) / prob_change.new_paths_length;
+  double new_cis_constant_ = 0.5 * (1.00 - translocation_prob_) / prob_change.new_paths_length;
   cout << "New cis constant " << new_cis_constant_ << endl;
 
   // eval new trans_constant
@@ -842,7 +842,7 @@ double HICReadProbabilityCalculator::EvalTotalProbabilityFromChange(const HICPro
   }
   sort(multis.begin(), multis.end());
   for (auto x: multis) new_trans_constant += x;
-  new_trans_constant = translocation_prob_ / new_trans_constant;
+  new_trans_constant = translocation_prob_ / new_trans_constant / 8.00;
 
   cout << "New trans constant " << new_trans_constant << endl;
 
