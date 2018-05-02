@@ -100,7 +100,7 @@ inline double SimpleReadProbModel (int dist, int read_length, double mismatch_pr
 }
 
 inline double BetterReadProbModel (int matches, int inserts, int dels, int substs, double insert_prob, double del_prob, double subst_prob) {
-  const double res = pow(insert_prob, inserts) * pow(del_prob, dels) * pow(subst_prob, substs) * pow(1 - insert_prob - del_prob - subst_prob, matches);
+  const double res = pow(insert_prob, inserts) * pow(del_prob, dels) * pow(subst_prob, substs) * pow(1 - 4 * insert_prob - del_prob - 3 * subst_prob, matches);
   //if (rand() % 1000 == 0) cerr << "PROBMODEL: " << matches << "\t" << inserts << "\t" << dels << "\t" << substs << "\t" << res << endl;
   return res;
   //return exp(inserts * log(insert_prob) + dels * log(del_prob) + substs*log(subst_prob) + matches * (1 - insert_prob - del_prob - subst_prob));
