@@ -314,7 +314,6 @@ double PairedReadProbabilityCalculator::EvalTotalProbabilityFromChange(const Pai
 
 int PairedReadProbabilityCalculator::GetPathsLength(const vector<Path> &paths) const {
   // same as for SingleReadProbabilityCalculator
-  // @TODO refactor later
   int ret = 0;
   for (auto &p: paths) {
     ret += p.GetLength();
@@ -482,7 +481,7 @@ double GlobalProbabilityCalculator::GetPathsProbability(
     const vector<Path>& paths, ProbabilityChanges& prob_changes) {
   double total_prob = 0;
   long long total_reads_length = 0;
-  // @TODO add weighting of datasets based on their lengths
+
   prob_changes.single_read_changes.clear();
   for (auto &single_read_calculator: single_read_calculators_) {
     SingleProbabilityChange ch;
@@ -606,7 +605,7 @@ double HICReadProbabilityCalculator::GetPathsProbability(const vector<Path> &pat
 }
 int HICReadProbabilityCalculator::GetPathsLength(const vector<Path> &paths) const {
   // same as for SingleReadProbabilityCalculator
-  // @TODO refactor later
+
   int ret = 0;
   for (auto &p: paths) {
     ret += p.GetLength();
@@ -620,7 +619,7 @@ void HICReadProbabilityCalculator::CommitProbabilityChange(const HICProbabilityC
   path_aligner_.RemovePathsFromCache(prob_change.removed_paths);
 }
 void HICReadProbabilityCalculator::EvalProbabilityChange(HICProbabilityChange &prob_change, bool debug_output) {
-  // @TODO implement
+  // pass
 }
 
 double exp_pdf(const int x, const double lambda) {

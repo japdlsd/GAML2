@@ -84,7 +84,6 @@ inline bool operator<(const PairedReadAlignment& a, const PairedReadAlignment& b
 
 
 struct HICReadAlignment {
-  // @TODO hic read alignment structure
   HICReadAlignment() {}
   HICReadAlignment(const SingleReadAlignment& al1_, const SingleReadAlignment& al2_,
                       const string& orientation_, int insert_length_) :
@@ -253,7 +252,6 @@ private:
 //template<class TIndex=StandardReadIndex>
 template<class TIndex=RandomIndex>
 class ShortPairedReadSet {
-  // @TODO add testing
  public:
   ShortPairedReadSet() {
     reads_1_ = SingleShortReadSet<TIndex>();

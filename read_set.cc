@@ -215,7 +215,7 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
       if (genome[x.genome_pos] == read[x.read_pos]) {
         //auto nx = make_pair(x.first, make_pair(x.second.first+1, x.second.second+1));
         //fr.push_front(nx);
-        fr.emplace_front(x.dist, x.read_pos+1, x.genome_pos+1, x.matches+1, x.inserts, x.dels, x.substs); // @TODO add match, subst, insert, delete
+        fr.emplace_front(x.dist, x.read_pos+1, x.genome_pos+1, x.matches+1, x.inserts, x.dels, x.substs);
         auto nx = make_pair(x.dist, make_pair(x.read_pos+1, x.genome_pos + 1));
         visited_positions.Add(nx);
         // if matches we greedily continue
@@ -227,7 +227,7 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
         auto nx = make_pair(x.dist+1, make_pair(x.read_pos+1, x.genome_pos+1));
         if (!visited_positions.IsVisited(nx)) {
           //fr.push_back(nx);
-          fr.emplace_back(x.dist+1, x.read_pos+1, x.genome_pos+1, x.matches, x.inserts, x.dels, x.substs+1); // @TODO add match, subst, insert, delete
+          fr.emplace_back(x.dist+1, x.read_pos+1, x.genome_pos+1, x.matches, x.inserts, x.dels, x.substs+1);
           visited_positions.Add(nx);
         }
       }
@@ -238,7 +238,7 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
         auto nx = make_pair(x.dist+1, make_pair(x.read_pos, x.genome_pos+1));
         if (!visited_positions.IsVisited(nx)) {
           //fr.push_back(nx);
-          fr.emplace_back(x.dist+1, x.read_pos, x.genome_pos+1, x.matches, x.inserts, x.dels+1, x.substs); // @TODO Add match, substs, insert, delete
+          fr.emplace_back(x.dist+1, x.read_pos, x.genome_pos+1, x.matches, x.inserts, x.dels+1, x.substs);
           visited_positions.Add(nx);
         }
       }
@@ -249,7 +249,7 @@ bool SingleShortReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition& ca
       auto nx = make_pair(x.dist+1, make_pair(x.read_pos+1, x.genome_pos));
       if (!visited_positions.IsVisited(nx)) {
         //fr.push_back(nx);
-        fr.emplace_back(x.dist+1, x.read_pos+1, x.genome_pos, x.matches, x.inserts+1, x.dels, x.substs); // @TODO add match, substs, insert, delete
+        fr.emplace_back(x.dist+1, x.read_pos+1, x.genome_pos, x.matches, x.inserts+1, x.dels, x.substs);
         visited_positions.Add(nx);
       }
     }
@@ -456,7 +456,6 @@ template<class TIndex>
 vector<PairedReadAlignment> ShortPairedReadSet<TIndex>::GetAlignments(const string &genome, const bool debug_output) const {
   vector<PairedReadAlignment> ret;
 
-  // @TODO optimize genome inversion maybe?
   vector<SingleReadAlignment> als1 = reads_1_.GetAlignments(genome);
   sort(als1.begin(), als1.end());
   if (debug_output) printf("; als1.size %d", (int)als1.size());
@@ -509,13 +508,13 @@ template<class TIndex>
 void ShortPairedReadSet<TIndex>::GetAlignments(const string &genome,
                                                bool reversed,
                                                vector<PairedReadAlignment> &output) const {
-  // @TODO implement
+
 }
 template<class TIndex>
 bool ShortPairedReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition &candidate,
                                                  const string &genome,
                                                  PairedReadAlignment &al) const {
-  // @TODO implement
+
   return false;
 }
 template<class TIndex>
@@ -536,12 +535,11 @@ vector<SingleReadAlignment> ShortPairedReadSet<TIndex>::GetPartAlignments(const 
 pair<string, int> eval_orientation(const SingleReadAlignment& als1, const int r1_len,
                                    const SingleReadAlignment& als2, const int r2_len) {
   // assume alignments are from the same contig/chromosome
-  // @TODO zratat dlzky zarovnani poriadne
+
   // predpokladame, ze isenrt length zapocitava aj dlzky readov
   // pri datach z Illumina predpokladame, ze nie su skoro ziadne indely -> dlzka zarovania ~~ dlzka readu
   const int b1 = als1.genome_pos;
   const int b2 = als2.genome_pos;
-  // @TODO eval ends correctly (get data from Extendalignment() function
   // half-open intervals
   const int e1 = als1.genome_pos + r1_len;
   const int e2 = als2.genome_pos + r2_len;
@@ -591,18 +589,18 @@ void HICReadSet<TIndex>::LoadReadSet(istream &is1, istream &is2) {
 }
 template<class TIndex>
 vector<PairedReadAlignment> HICReadSet<TIndex>::GetAlignments(const string &genome, const bool debug_output) const {
-  // @TODO HIGH
+
   return vector<PairedReadAlignment>();
 }
 template<class TIndex>
 void HICReadSet<TIndex>::GetAlignments(const string &genome, bool reversed, vector<PairedReadAlignment> &output) const {
-  //@TODO someday?
+
 }
 template<class TIndex>
 bool HICReadSet<TIndex>::ExtendAlignment(const CandidateReadPosition &candidate,
                                          const string &genome,
                                          PairedReadAlignment &al) const {
-  // @TODO implement someday (or remove?)
+
   return false;
 }
 

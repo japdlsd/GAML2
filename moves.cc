@@ -49,8 +49,7 @@ bool ExtendPathsRandomly(const vector<Path>& paths, vector<Path>& out_paths,
   }
   int same_end = FindPathWithSameEnding(out_paths, pi);
   if (same_end == -1) {
-    //return true;
-    // @TODO add to config
+
     return (rand() % 10 == 0);
   }
 
@@ -124,7 +123,6 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
 
   if (paths.empty()) return false;
   // choose path to extend (by joining another path) randomly
-  // @TODO maybe take into consideration amount of mismatched paired reads
   const int start_path_id = rand() % (int)paths.size();
   const Path& start_path = paths[start_path_id];
 
@@ -255,7 +253,6 @@ bool JoinWithAdvicePaired(const vector<Path>& paths, vector<Path>& out_paths,
 
   vector<Path> possible_connections;
 
-  // @TODO add to the config
   const int SAMPLE_NUM = 300;
   const int MAX_CONN_LENGTH = disjoint_length * 3; // bases, not nodes
 
@@ -368,7 +365,6 @@ bool JoinWithAdviceHic(const vector<Path>& paths, vector<Path>& out_paths,
 
   if (paths.empty()) return false;
   // choose path to extend (by joining another path) randomly
-  // @TODO maybe take into consideration amount of mismatched paired reads
   const int start_path_id = rand() % (int)paths.size();
   const Path& start_path = paths[start_path_id];
 
@@ -496,7 +492,6 @@ bool JoinWithAdviceHic(const vector<Path>& paths, vector<Path>& out_paths,
 
   vector<Path> possible_connections;
 
-  // @TODO add to the config
   const int SAMPLE_NUM = 300;
   const int MAX_CONN_LENGTH = disjoint_length * 3; // bases, not nodes
 
@@ -640,7 +635,6 @@ bool JoinWithAdvice(const vector<Path>& paths, vector<Path>& out_paths,
                              pc.hic_read_calculators_[available_paired_read_sets[which_dataset_to_choose-(int)pc.paired_read_calculators_.size()]].first,
                              pc);
   }
-  // @TODO add HiC choice
 }
 
 int chooseRandomPositionByNode(Path& p, const int node_id) {
@@ -957,7 +951,6 @@ bool UntangleCrossedPaths(const vector<Path>& paths, vector<Path>& out_paths, co
 
 string MakeMove(const vector<Path>& paths, vector<Path>& out_paths, const MoveConfig& config, GlobalProbabilityCalculator& probability_calculator,
               bool& accept_higher_prob) {
-  // @TODO add probs of moves into config
   vector<int> ratios = {5, 5, 20, 20};
 
   int move_type = 0;
@@ -987,10 +980,9 @@ pair<bool, string> TryMove(const vector<Path>& paths, vector<Path>& out_paths, c
     cout << "BreakPaths()" << endl;
     return make_pair(BreakPaths(paths, out_paths, config), PATH_BREAK);
   }
-  // @TODO Joining with advice move (high priority)
   if (move_type == 2) {
     cout << "JoinWithAdvice()" << endl;
-    accept_higher_prob = false; // @TODO check with Usama if correct
+    accept_higher_prob = false;
     return make_pair(JoinWithAdvice(paths, out_paths, config, probability_calculator), PATH_JOIN);
   }
   if (move_type == 3) {
@@ -999,8 +991,5 @@ pair<bool, string> TryMove(const vector<Path>& paths, vector<Path>& out_paths, c
     return make_pair(UntangleCrossedPaths(paths, out_paths, config, probability_calculator), PATH_UNTANGLE);
   }
 
-  // @TODO add Local improvement move (low priority)
-  // @TODO add Repeat optimization move (low priority)
-  // @TODO Repeat interchange move (low priority)
   return make_pair(false, "");
 }

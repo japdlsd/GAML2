@@ -9,7 +9,6 @@ class MoveConfig {
   int big_node_threshold;
   int rand_extend_step_threshold;
   int rand_extend_distance_threshold;
-  // @TODO add move config to config.proto
   MoveConfig() :
     big_node_threshold(500),
     rand_extend_step_threshold(50),

@@ -51,7 +51,6 @@ void DisconnectPoorlyConnectedPaths(GlobalProbabilityCalculator& pc, const Confi
 
 void PerformOptimization(GlobalProbabilityCalculator& probability_calculator,
                          const Config& gaml_config, vector<Path>& paths) {
-  // @TODO add random seed to config? (i14)
   const int random_seed = 47;
   cout << "random seed: " << random_seed << endl;
   default_random_engine generator(random_seed);

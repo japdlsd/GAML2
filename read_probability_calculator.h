@@ -44,7 +44,6 @@ struct HICProbabilityChange {
 
 struct ProbabilityChanges {
   // single object for every probability change
-  // @TODO create an interface for ProbabilityChange?
   vector<SingleProbabilityChange> single_read_changes;
   vector<PairedProbabilityChange> paired_read_changes;
   vector<HICProbabilityChange> hic_read_changes;
@@ -327,7 +326,6 @@ class PairedReadProbabilityCalculator {
 };
 
 class HICReadProbabilityCalculator {
-  // @TODO implement HIC stuff
  public:
   HICReadProbabilityCalculator(
       HICReadSet<>* read_set,
@@ -553,7 +551,6 @@ class GlobalProbabilityCalculator {
   vector<ShortPairedReadSet<>*> paired_read_sets_;
   vector<HICReadSet<>*> hic_read_sets_;
   // (prob calculator, weight)
-  // @TODO do you speak polymorphism? (vytvorit template na read calculatory) (i3)
   vector<pair<SingleReadProbabilityCalculator, double>> single_read_calculators_;
   vector<pair<PairedReadProbabilityCalculator, double>> paired_read_calculators_;
   vector<pair<HICReadProbabilityCalculator, double>> hic_read_calculators_;
